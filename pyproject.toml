@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swindl"
+authors = [
+    {name = "Thijs Janssen", email = "thijs@seecr.nl"},
+    {name = "Johan Jonkers", email = "johan@seecr.nl"},
+]
+description = "Seecr Web Index and Database Lib combines swl, sil and sdbl",
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = ["swl", "sil", "sdbl", "seecr"]
+license = {file = "LICENSE"}
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "swl",
+    "sil",
+    "sdbl",
+    "pytest >= 8.4.2, < 9",
+    "pytest-asyncio >= 1.2.0, < 2",
+]
+dynamic = ["version"]
+
+[tool.setuptools_scm]
+version_file = "swindl/_version.py"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.isort]
+profile = "black"
