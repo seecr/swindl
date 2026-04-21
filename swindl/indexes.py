@@ -30,6 +30,10 @@ from org.apache.lucene.search import BooleanQuery, TermQuery
 from org.apache.lucene.search import BooleanClause
 from org.apache.lucene.index import Term
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class Indexes:
     def __init__(self, path, models, commit_timeout=5, immediate_commit=False):
@@ -37,7 +41,7 @@ class Indexes:
         self._indexes = {}
         for model in models:
             if not issubclass(model, Base) or not hasattr(model, "INDEX"):
-                print(f"* Skipping {model.type_name}: No index fields defined")
+                logger.info(f"Skipping {model.type_name}: No index fields defined")
                 continue
 
             self._indexes[model.type_name] = Index(
