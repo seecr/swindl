@@ -22,6 +22,7 @@
 #
 ## end license ##
 
+
 def as_is(value):
     return value
 
@@ -104,6 +105,11 @@ class WebAdapter:
             adapt.name: adapt for adapt in getattr(obj, "ADAPTATIONS", [])
         }
         self._add_adaptations(adaptations)
+
+    @classmethod
+    def adapt(cls, obj, form, fields, adaptations=None):
+        wa = cls(obj, adaptations)
+        return wa.from_web(form, fields)
 
     def _add_adaptations(self, adaptations):
         adaptations = adaptations or []

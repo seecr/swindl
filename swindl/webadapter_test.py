@@ -65,6 +65,12 @@ def test_convert_from_web():
         "location": "office",
     }
 
+    assert WebAdapter.adapt(p, form, ["name", "age", "location"]) == {
+        "name": "JOHN DOE",
+        "age": 69,
+        "location": "office",
+    }
+
 
 def test_convert_boolean_from_web():
     class Person:
