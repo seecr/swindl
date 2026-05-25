@@ -22,6 +22,8 @@
 #
 ## end license ##
 
+from decimal import Decimal
+
 
 def as_is(value):
     return value
@@ -57,6 +59,19 @@ class Adapt:
             name,
             from_web=from_web_method(name, from_web or int),
             to_web=to_web_method(to_web or str),
+        )
+
+    @classmethod
+    def decimal(cls, name, decimals=2, from_web=None, to_web=None):
+        def quantized(v):
+            return v.quantize(Decimal(10) ** -decimals)
+
+        return cls(
+            name,
+            from_web=from_web_method(
+                name, from_web or (lambda v: quantized(Decimal(v)))
+            ),
+            to_web=to_web_method(to_web or (lambda v: str(quantized(v)))),
         )
 
     @classmethod

@@ -24,6 +24,8 @@
 
 from .webadapter import Adapt, WebAdapter
 
+from decimal import Decimal
+
 
 def test_convert_to_web():
     class Person:
@@ -124,3 +126,29 @@ def test_additional_adaptations_to_web():
         Person(name="John Doe"), adaptations=[Adapt.method("name", to_web=str.swapcase)]
     )
     assert wa.name == "jOHN dOE"
+
+
+def test_convert_decimal():
+    ad_weigth2 = Adapt.decimal("weight", decimals=2)
+    ad_weigth0 = Adapt.decimal("weight", decimals=0)
+
+    class Person:
+        ADAPTATIONS = [ad_weigth2]
+
+        def __init__(self, weight):
+            self.weight = weight
+
+    wa = WebAdapter(Person(weight=Decimal(10)))
+    assert wa.weight == "10.00"
+
+    wa = WebAdapter(Person(weight=Decimal(10 / 3)))
+    assert wa.weight == "3.33"
+
+    form = dict(weight="3.33")
+    assert wa.from_web(form, ["weight"], adaptations=[ad_weigth2]) == {
+        "weight": Decimal("3.33")
+    }
+
+    assert wa.from_web(form, ["weight"], adaptations=[ad_weigth0]) == {
+        "weight": Decimal("3")
+    }
