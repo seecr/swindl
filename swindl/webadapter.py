@@ -126,6 +126,9 @@ class WebAdapter:
         wa = cls(obj, adaptations)
         return wa.from_web(form, fields)
 
+    def original(self, name):
+        return getattr(self._obj, name)
+
     def _add_adaptations(self, adaptations):
         adaptations = adaptations or []
         for adapt in adaptations:

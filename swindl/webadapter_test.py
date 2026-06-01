@@ -126,6 +126,7 @@ def test_additional_adaptations_to_web():
         Person(name="John Doe"), adaptations=[Adapt.method("name", to_web=str.swapcase)]
     )
     assert wa.name == "jOHN dOE"
+    assert wa.original("name") == "John Doe"
 
 
 def test_convert_decimal():
