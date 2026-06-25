@@ -67,3 +67,19 @@ async def test_add_query_delete(tmp_path):
 
     indexes.delete_record(obj=obj)
     assert indexes.search_query(Obj, "*") == {"count": 0, "docs": [], "drilldown": {}}
+
+
+async def test_delete(tmp_path):
+    indexes = Indexes(tmp_path, [Obj], immediate_commit=True)
+    assert indexes.search_query(Obj, "*") == {"count": 0, "docs": [], "drilldown": {}}
+
+    obj = Obj()
+    obj.update(something="tekst")
+    await indexes.add_record(store=None, obj=obj)
+
+    result = indexes.search_query(Obj, "*")
+    assert result["count"] == 1
+    assert result["docs"][0]["__id__"] == obj.qid
+
+    indexes.delete_record(cls=Obj, identifier=obj.id)
+    assert indexes.search_query(Obj, "*") == {"count": 0, "docs": [], "drilldown": {}}

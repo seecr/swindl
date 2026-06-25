@@ -74,9 +74,13 @@ class Indexes:
             values = await obj.index_values(store)
             await index.add_record(obj.qid, values)
 
-    def delete_record(self, obj):
-        if (index := self.get(obj)) is not None:
-            index.delete_record(obj.qid, immediate_commit=True)
+    def delete_record(self, obj=None, cls=None, identifier=None):
+        if obj is None and identifier is None and isinstance(cls, Base):
+            obj = cls
+
+        if (index := self.get(obj or cls)) is not None:
+            qid = obj.qid if obj else f"{cls.__name__}:{identifier}"
+            index.delete_record(qid, immediate_commit=True)
 
     def search_query(self, obj, *args, **kwargs):
         if (index := self.get(obj)) is not None:
