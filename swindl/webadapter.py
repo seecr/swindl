@@ -23,6 +23,7 @@
 ## end license ##
 
 from decimal import Decimal
+from datetime import datetime
 
 
 def as_is(value):
@@ -59,6 +60,17 @@ class Adapt:
             name,
             from_web=from_web_method(name, from_web or int),
             to_web=to_web_method(to_web or str),
+        )
+
+    @classmethod
+    def date(cls, name, from_web=None, to_web=None):
+        return cls(
+            name,
+            from_web=from_web_method(
+                name,
+                from_web or (lambda v: v and datetime.fromisoformat(v).date() or None),
+            ),
+            to_web=to_web_method(to_web or (lambda v: v and v.isoformat() or "")),
         )
 
     @classmethod

@@ -25,6 +25,9 @@
 from .webadapter import Adapt, WebAdapter
 
 from decimal import Decimal
+from datetime import datetime
+
+from seecr_stdlib.time import now_local
 
 
 def test_convert_to_web():
@@ -47,24 +50,30 @@ def test_convert_from_web():
         ADAPTATIONS = [
             Adapt.str("name", from_web=str.upper, to_web=str.lower),
             Adapt.int("age"),
+            Adapt.date("dob"),
         ]
 
-        def __init__(self, name, age, location):
+        def __init__(self, name, age, location, dob):
             self.name = name
             self.age = age
             self.location = location
+            self.dob = dob
 
-    p = Person(name="John Doe", age=42, location="home")
+    today = now_local().date()
+
+    p = Person(name="John Doe", age=42, location="home", dob=today)
     assert p.name == "John Doe"
     assert p.age == 42
     assert p.location == "home"
+    assert p.dob == today
 
     wa = WebAdapter(p)
-    form = dict(name="JoHn DoE", age="69", location="office")
-    assert wa.from_web(form, ["name", "age", "location"]) == {
+    form = dict(name="JoHn DoE", age="69", location="office", dob="1955-05-15")
+    assert wa.from_web(form, ["name", "age", "location", "dob"]) == {
         "name": "JOHN DOE",
         "age": 69,
         "location": "office",
+        "dob": datetime.fromisoformat("1955-05-15").date(),
     }
 
     assert WebAdapter.adapt(p, form, ["name", "age", "location"]) == {
