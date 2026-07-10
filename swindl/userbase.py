@@ -25,6 +25,7 @@
 from swl.userbase import Userbase as _Userbase
 
 from swindl.model import User
+import argon2
 
 
 class Userbase(_Userbase):
@@ -70,3 +71,11 @@ class Userbase(_Userbase):
                 continue
             base_user = await super().get(user_d["username"])
             await self._userclass.create(self._store, base_user)
+
+    @classmethod
+    def for_testing(cls, *args, **kwargs):
+        return cls(
+            *args,
+            _hasher=argon2.PasswordHasher.from_parameters(argon2.profiles.CHEAPEST),
+            **kwargs
+        )

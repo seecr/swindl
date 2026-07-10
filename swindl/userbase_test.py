@@ -27,6 +27,7 @@ import pytest
 from sdbl.store import Store
 from .userbase import Userbase
 from swindl.model import ALL_MODELS
+import shutil
 
 
 @pytest.fixture
@@ -35,7 +36,7 @@ async def environment(tmp_path):
         database_url=f"sqlite+aiosqlite:///{tmp_path}/test.db",
     )
     await store.setup(models=ALL_MODELS)
-    userbase = Userbase(store, tmp_path)
+    userbase = Userbase.for_testing(store, tmp_path / "users")
     await userbase.setup(skip_admin_check=True)
     return store, userbase, tmp_path
 
@@ -100,22 +101,19 @@ async def test_delete_user(environment):
 async def test_database_removed(environment):
     store, userbase, path = environment
 
-    await userbase.create(username="slim", password="shady")
+    user_slim = await userbase.create(username="slim", password="shady")
     all_users = await userbase.all_users()
     assert len(all_users) == 1
 
     second_path = path / "second"
     second_path.mkdir()
     users2_path = second_path / "users"
-    users2_path.mkdir()
-    users2_path.joinpath("slim.json").write_text(
-        path.joinpath("users/slim.json").read_text()
-    )
+    shutil.copytree(path / "users", users2_path)
     store2 = Store(
         database_url=f"sqlite+aiosqlite:///{second_path}/test.db",
     )
     await store2.setup(models=ALL_MODELS)
-    userbase2 = Userbase(store2, second_path)
+    userbase2 = Userbase(store2, second_path / "users")
     await userbase2.setup(skip_admin_check=True)
 
     all_users = await userbase2.all_users()
