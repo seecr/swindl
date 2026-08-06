@@ -1,30 +1,6 @@
-## begin license ##
-#
-# "Swindl"(Seecr Web Index and Database Lib) combines swl, sil and sdbl
-#
-# Copyright (C) 2025-2026 Seecr (Seek You Too B.V.) https://seecr.nl
-#
-# This file is part of "Swindl"
-#
-# "Swindl" is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# "Swindl" is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with "Swindl"; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-#
-## end license ##
-
 from sil.index import Index
 from sil.indexprofile import IndexProfile
-from sdbl.base import Base
+from .base import Base
 
 from org.apache.lucene.search import BooleanQuery, TermQuery
 from org.apache.lucene.search import BooleanClause
@@ -35,8 +11,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class Commit:
+    def __init__(self, timeout=5, immediate=False):
+        self.timeout = timeout
+        self.immediate = immediate
+
+
 class Indexes:
-    def __init__(self, path, models, commit_timeout=5, immediate_commit=False):
+    def __init__(self, path, models, commit=None):
+        if commit is None:
+            commit = Commit()
+
         self._path = path
         self._indexes = {}
         for model in models:
@@ -44,11 +29,14 @@ class Indexes:
                 logger.info(f"Skipping {model.type_name}: No index fields defined")
                 continue
 
-            self._indexes[model.type_name] = Index(
-                path / model.type_name,
+            model_name = model.__name__
+            logger.info(f"Adding {model_name}")
+
+            self._indexes[model_name] = Index(
+                self._path / model_name,
                 IndexProfile(model.INDEX),
-                commit_timeout=commit_timeout,
-                immediate_commit=immediate_commit,
+                commit_timeout=commit.timeout,
+                immediate_commit=commit.immediate,
             )
 
     def shutdown(self):
@@ -60,8 +48,10 @@ class Indexes:
             index.delete_all()
 
     def get(self, cls):
-        if isinstance(cls, Base) or hasattr(cls, "type_name"):
-            type_name = cls.type_name
+        if isinstance(cls, Base):
+            type_name = cls.__class__.__name__
+        elif isinstance(cls, type) and issubclass(cls, Base):
+            type_name = cls.__name__
         elif isinstance(cls, str):
             type_name = cls
         else:
@@ -69,18 +59,16 @@ class Indexes:
 
         return self._indexes.get(type_name)
 
-    async def add_record(self, store, obj):
+    def add_record(self, obj):
         if (index := self.get(obj)) is not None:
-            values = await obj.index_values(store)
-            await index.add_record(obj.qid, values)
+            index_values = obj.index_values()
+            index_values["__id__"] = str(obj.__id__)
+            index_values["__archived__"] = str(obj.__archived__)
+            index.add_record(obj.qid, index_values)
 
-    def delete_record(self, obj=None, cls=None, identifier=None):
-        if obj is None and identifier is None and isinstance(cls, Base):
-            obj = cls
-
-        if (index := self.get(obj or cls)) is not None:
-            qid = obj.qid if obj else f"{cls.__name__}:{identifier}"
-            index.delete_record(qid, immediate_commit=True)
+    def delete_record(self, obj):
+        if (index := self.get(obj)) is not None:
+            index.delete_record(obj.qid, immediate_commit=True)
 
     def search_query(self, obj, *args, **kwargs):
         if (index := self.get(obj)) is not None:
