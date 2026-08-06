@@ -18,15 +18,17 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "pytest >= 9.1.1, < 10",
-    "pytest-asyncio >= 1.4.0, < 2",
-    "sdbl >= 1.3.1, < 2",
-    "seecr-stdlib >= 0.1.7, < 1",
-    "setuptools-scm >= 10.2.0, < 11",
-    "sil >= 2, < 3",
-    "swl >= 3.0.0, < 4",
+    "pytest",
+    "pytest-asyncio",
+    "seecr-stdlib",
+    "setuptools-scm",
+    "sil",
+    "swl",
 ]
 dynamic = ["version"]
+
+[project.scripts]
+swindl-load-sdbl-dump = "swindl.store.dump:main"
 
 [tool.setuptools_scm]
 version_file = "swindl/_version.py"
