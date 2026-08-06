@@ -18,12 +18,12 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "pytest",
-    "pytest-asyncio",
-    "seecr-stdlib",
-    "setuptools-scm",
-    "sil",
-    "swl",
+    "pytest >= 9.1.1, < 10",
+    "pytest-asyncio >= 1.4.0, < 2",
+    "seecr-stdlib >= 0.2, < 1",
+    "setuptools-scm >= 10.2.1, < 11",
+    "sil >= 2.0.0, < 3",
+    "swl >= 3.2.1, < 4",
 ]
 dynamic = ["version"]
 
