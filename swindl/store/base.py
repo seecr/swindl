@@ -102,8 +102,9 @@ class Base:
     def deletable(self, store):
         return True
 
-    def mark_archived(self, archived=True):
+    def mark_archived(self, store, archived=True):
         self._meta["__archived__"] = archived
+        store.put(self)
 
     def __getattr__(self, name):
         if name.startswith("__") and name in self._meta:

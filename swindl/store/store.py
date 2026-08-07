@@ -206,8 +206,7 @@ class Store(object):
         self._indexes.delete_record(obj)
 
     def archive(self, obj):
-        obj.mark_archived()
-        self.put(obj)
+        obj.mark_archived(self)
 
     def reindex(self, models):
         self._indexes.delete_all()
