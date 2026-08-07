@@ -22,15 +22,11 @@
 #
 ## end license ##
 
-import uuid
 from datetime import datetime
+from .utils import new_uuid
 import json
 
 ATTR_READONLY = "readonly"
-
-
-def new_uuid():
-    return str(uuid.uuid1())
 
 
 class Field:

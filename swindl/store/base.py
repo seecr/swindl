@@ -23,24 +23,23 @@
 ## end license ##
 
 from .field import Field
+from .utils import new_uuid
 
 from sil.indexfield import IndexField
-from seecr_stdlib.time import uuid_as_datetime_utc, datetime_utc_to_local
 
-import uuid
+__ID__ = "__id__"
+__REV__ = "__rev__"
+__ARCHIVED__ = "__archived__"
 
 
 class Base:
     META = [
-        Field.uuid("__id__"),
-        Field.uuid("__rev__"),
-        Field.bool("__archived__", default=False),
+        Field.uuid(__ID__),
+        Field.uuid(__REV__),
+        Field.bool(__ARCHIVED__, default=False),
     ]
     FIELDS = []
-    INDEX = [
-        IndexField.untokenized(name="__id__"),
-        IndexField.untokenized(name="__archived__"),
-    ]
+    INDEX = []
 
     def __init__(self, values=None):
         self._meta = {field.name: field.default for field in self.META}
@@ -59,11 +58,11 @@ class Base:
 
     @property
     def id(self):
-        return self._meta["__id__"]
+        return self._meta[__ID__]
 
     @property
     def is_archived(self):
-        return self._meta["__archived__"]
+        return self._meta[__ARCHIVED__]
 
     @property
     def type_name(self):
@@ -71,14 +70,11 @@ class Base:
 
     @property
     def qid(self):
-        return f"{self.type_name}:{self.__id__}"
+        return f"{self.type_name}:{self[__ID__]}"
 
     @property
     def qrid(self):
-        return f"{self.type_name}:{self.__id__}:{self.__rev__}"
-
-    def has_changed(self, identifier):
-        return False
+        return f"{self.type_name}:{self[__ID__]}:{self[__REV__]}"
 
     def update(self, **kwargs):
         changed = False
@@ -91,7 +87,8 @@ class Base:
                 self._data[field.name] = value
                 changed = True
         if changed:
-            self._meta["__rev__"] = str(uuid.uuid1())
+            self._meta[__REV__] = new_uuid()
+        return changed
 
     def delete(self, store):
         store.delete(self)
@@ -103,7 +100,7 @@ class Base:
         return True
 
     def mark_archived(self, store, archived=True):
-        self._meta["__archived__"] = archived
+        self._meta[__ARCHIVED__] = archived
         store.put(self)
 
     def __getattr__(self, name):
@@ -152,12 +149,6 @@ class Base:
             }
         )
         return obj
-
-    def creation_date(self):
-        return self.creation_datetime().date()
-
-    def creation_datetime(self):
-        return datetime_utc_to_local(uuid_as_datetime_utc(self.__id__))
 
     def __eq__(self, other):
         return other.id == self.id if isinstance(other, self.__class__) else False

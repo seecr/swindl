@@ -25,7 +25,7 @@
 from .indexes import Query
 from .indexes import Indexes
 from .jsonstore import JsonStore
-from .base import Base
+from .base import Base, __ID__, __REV__, __ARCHIVED__
 
 from .utils import mkdir
 
@@ -125,24 +125,25 @@ class Store(object):
         else:
             return cls.__name__
 
-    def get(self, qid_or_qrid, include_archived=False, assert_type=None):
+    def _get(self, qid_or_qrid):
         cls, _, identifier = qid_or_qrid.partition(":")
         identifier, _, revision = identifier.partition(":")
 
         if (record := self._store.get(f"{cls}:{identifier}")) is not None:
-            if assert_type is not None and self._class(record) != self._class(
-                assert_type
-            ):
-                raise TypeError(
-                    f"Expected {assert_type!r}, got {self._class(record)!r}"
-                )
-
-            if revision != "" and record.__rev__ != revision:
+            if revision != "" and record[__REV__] != revision:
                 raise HasChangedException()
 
-            if not include_archived and record.__archived__:
-                return None
+        return record
 
+    def get(self, qid_or_qrid, include_archived=False, assert_type=None):
+        if (record := self._get(qid_or_qrid)) is None:
+            return None
+
+        if not include_archived and record[__ARCHIVED__]:
+            return None
+
+        if assert_type is not None and self._class(record) != self._class(assert_type):
+            raise TypeError(f"Expected {assert_type!r}, got {self._class(record)!r}")
         return record
 
     def list(self, cls, include_archived=False, **kwargs):
@@ -151,7 +152,7 @@ class Store(object):
             qp.filters[name] = value
 
         if not include_archived:
-            qp.filters["__archived__"] = str(False)
+            qp.filters[__ARCHIVED__] = str(False)
 
         result = self.query(qp)
         while True:
@@ -175,6 +176,7 @@ class Store(object):
         obj_type = query_params.obj_type
 
         if isinstance(query_params.query, str):
+
             query = Query(query_params.query)
         elif isinstance(query_params.query, Query):
             query = query_params.query
@@ -193,11 +195,8 @@ class Store(object):
             sort=query_params.sort,
         )
         total = results["count"]
-        for doc in results["docs"]:
-            if (
-                obj := self._store.get(doc["__id__"])  # TODO: , assert_type=obj_type)
-            ) is not None:
-                objs.append(obj)
+
+        objs = [self._get(doc[__ID__]) for doc in results["docs"]]
 
         return QueryResult(objs=objs, total=total, params=query_params)
 

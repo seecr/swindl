@@ -23,8 +23,10 @@
 ## end license ##
 
 from sil.index import Index
+from sil.indexfield import IndexField
 from sil.indexprofile import IndexProfile
-from .base import Base
+
+from .base import Base, __ARCHIVED__, __ID__
 
 from org.apache.lucene.search import BooleanQuery, TermQuery
 from org.apache.lucene.search import BooleanClause
@@ -58,7 +60,13 @@ class Indexes:
 
             self._indexes[model_name] = Index(
                 self._path / model_name,
-                IndexProfile(model.INDEX),
+                IndexProfile(
+                    [
+                        IndexField.untokenized(name=__ID__),
+                        IndexField.untokenized(name=__ARCHIVED__),
+                    ]
+                    + model.INDEX
+                ),
                 commit_timeout=commit.timeout,
                 immediate_commit=commit.immediate,
             )
@@ -86,8 +94,8 @@ class Indexes:
     def add_record(self, obj):
         if (index := self.get(obj)) is not None:
             index_values = obj.index_values()
-            index_values["__id__"] = str(obj.__id__)
-            index_values["__archived__"] = str(obj.__archived__)
+            index_values[__ID__] = str(obj[__ID__])
+            index_values[__ARCHIVED__] = str(obj[__ARCHIVED__])
             index.add_record(obj.qid, index_values)
 
     def delete_record(self, obj):
