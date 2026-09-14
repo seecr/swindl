@@ -24,8 +24,8 @@
 
 from .indexes import Indexes, Commit
 
-from .base import Base
-from .field import Field
+from sjdbl.base import Base
+from sjdbl.field import Field
 
 from sil.indexfield import IndexField
 

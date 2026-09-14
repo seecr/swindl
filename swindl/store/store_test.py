@@ -24,8 +24,10 @@
 
 from .store import Store, HasChangedException
 from .indexes import Commit
-from .base import Base
-from .field import Field
+
+from sjdbl.base import Base
+from sjdbl.field import Field
+
 import pytest
 
 

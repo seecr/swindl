@@ -26,7 +26,7 @@ from sil.index import Index
 from sil.indexfield import IndexField
 from sil.indexprofile import IndexProfile
 
-from .base import Base, __ARCHIVED__, __ID__
+from sjdbl.base import Base, __ARCHIVED__, __ID__
 
 from org.apache.lucene.search import BooleanQuery, TermQuery
 from org.apache.lucene.search import BooleanClause

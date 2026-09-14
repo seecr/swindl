@@ -25,6 +25,7 @@
 import argparse
 import pathlib
 import json
+from .utils import mkdir
 
 
 def main():
@@ -55,8 +56,7 @@ def convert_dump(import_directory, target_directory):
 
     for f in import_directory.glob("*.json"):
         cls, identifier = f.stem.split(":", 1)
-        cls_directory = target_directory / cls
-        cls_directory.mkdir(parents=True, exist_ok=True)
+        cls_directory = mkdir(target_directory / cls)
 
         data = json.loads(f.read_text())
 

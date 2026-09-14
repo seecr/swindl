@@ -22,14 +22,15 @@
 #
 ## end license ##
 
-from .indexes import Query
-from .indexes import Indexes
-from .jsonstore import JsonStore
-from .base import Base, __ID__, __REV__, __ARCHIVED__
+from .indexes import Query, Indexes
 
 from .utils import mkdir
 
+from sjdbl import Store as JsonStore
+from sjdbl.base import Base, __ID__, __REV__, __ARCHIVED__
+
 from seecr_stdlib import first
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -40,17 +41,27 @@ class HasChangedException(Exception):
 
 
 class QueryParams:
-    def __init__(self, obj_type, query="*", page=0, size=20, sort=None, filters=None):
+    def __init__(
+        self,
+        obj_type,
+        query="*",
+        page=0,
+        size=20,
+        sort=None,
+        filters=None,
+        drilldown=None,
+    ):
         self.query = query
         self.obj_type = obj_type
         self.page = page
         self.size = size
         self.sort = sort
         self.filters = filters or {}
+        self.drilldown = drilldown or {}
 
 
 class QueryResult:
-    def __init__(self, objs, total, params):
+    def __init__(self, objs, total, params, drilldown):
         self.objs = objs
         self.params = params
 
@@ -58,6 +69,7 @@ class QueryResult:
         self.stop = min((params.page * params.size) + params.size, total)
         self.total = total
         self.pages = Pages(params.page, params.size, total)
+        self.drilldown = drilldown
 
     def is_last_page(self):
         return self.pages.last is None or self.params.page == self.pages.last
@@ -171,12 +183,16 @@ class Store(object):
         result = self.query(qp)
         return first(result.objs)
 
+    def find_by_field(self, cls, field, value):
+        results = self._indexes.search_by_term(cls, field, value)
+
+        return [self._get(doc[__ID__]) for doc in results["docs"]]
+
     def query(self, query_params):
         objs = []
         obj_type = query_params.obj_type
 
         if isinstance(query_params.query, str):
-
             query = Query(query_params.query)
         elif isinstance(query_params.query, Query):
             query = query_params.query
@@ -193,12 +209,16 @@ class Store(object):
             page=query_params.page + 1,
             limit=query_params.size,
             sort=query_params.sort,
+            drilldown=query_params.drilldown,
         )
+
         total = results["count"]
 
         objs = [self._get(doc[__ID__]) for doc in results["docs"]]
 
-        return QueryResult(objs=objs, total=total, params=query_params)
+        return QueryResult(
+            objs=objs, total=total, params=query_params, drilldown=results["drilldown"]
+        )
 
     def delete(self, obj):
         self._store.delete(obj)
