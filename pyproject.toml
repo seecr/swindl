@@ -21,10 +21,10 @@ dependencies = [
     "pytest >= 9.1.1, < 10",
     "pytest-asyncio >= 1.4.0, < 2",
     "seecr-stdlib >= 0.2, < 1",
-    "setuptools-scm >= 10.2.1, < 11",
-    "sjdbl", 
+    "setuptools-scm >= 10.3.0, < 11",
     "sil >= 2.0.0, < 3",
-    "swl >= 3.2.1, < 4",
+    "sjdbl >= 0.1.0, < 1",
+    "swl >= 3.3.0, < 4",
 ]
 dynamic = ["version"]
 
