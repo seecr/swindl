@@ -152,8 +152,12 @@ class Query:
         builder.add(BooleanClause(q, BooleanClause.Occur.MUST))
 
         for term in self._terms:
-            t = TermQuery(Term(term["field"], term["value"]))
-            builder.add(BooleanClause(t, BooleanClause.Occur.MUST))
+            values = (
+                term["value"] if isinstance(term["value"], list) else [term["value"]]
+            )
+            for value in values:
+                t = TermQuery(Term(term["field"], value))
+                builder.add(BooleanClause(t, BooleanClause.Occur.MUST))
 
         return builder.build()
 
