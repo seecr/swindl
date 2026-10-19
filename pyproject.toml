@@ -23,8 +23,6 @@ dependencies = [
     "seecr-stdlib >= 0.4.0, < 1",
     "setuptools-scm >= 10.2.3, < 11",
     "sil >= 2.1.0, < 3",
-    "sjdbl >= 0.1.0, < 1",
-    "swl >= 3.3.0, < 4",
 ]
 dynamic = ["version"]
 

@@ -80,3 +80,7 @@ def convert_dump(import_directory, target_directory):
                 )
             )
         )
+
+
+if __name__ == "__main__":
+    main()
