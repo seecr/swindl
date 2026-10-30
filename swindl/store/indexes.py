@@ -28,10 +28,6 @@ from sil.indexprofile import IndexProfile
 
 from sjdbl.base import Base, __ARCHIVED__, __ID__
 
-from org.apache.lucene.search import BooleanQuery, TermQuery
-from org.apache.lucene.search import BooleanClause
-from org.apache.lucene.index import Term
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -117,12 +113,9 @@ class Indexes:
 
     def search_by_term_and_query(self, obj, field, value, query, *args, **kwargs):
         if (index := self.get(obj)) is not None:
-            q = index.parse_query(query)
-            t = TermQuery(Term(field, value))
-            builder = BooleanQuery.Builder()
-            builder.add(BooleanClause(q, BooleanClause.Occur.MUST))
-            builder.add(BooleanClause(t, BooleanClause.Occur.MUST))
-            query = builder.build()
+            query = index.all_of(
+                index.parse_query(query), index.term_query(field, value)
+            )
             return index.search(query, *args, **kwargs)
 
     def suggest(self, obj, *args, **kwargs):
@@ -148,18 +141,15 @@ class Query:
         if self._terms == []:
             return q
 
-        builder = BooleanQuery.Builder()
-        builder.add(BooleanClause(q, BooleanClause.Occur.MUST))
-
+        term_queries = []
         for term in self._terms:
             values = (
                 term["value"] if isinstance(term["value"], list) else [term["value"]]
             )
             for value in values:
-                t = TermQuery(Term(term["field"], value))
-                builder.add(BooleanClause(t, BooleanClause.Occur.MUST))
+                term_queries.append(index.term_query(term["field"], value))
 
-        return builder.build()
+        return index.all_of(q, *term_queries)
 
     def __repr__(self):
         return f"Query({self._query!r}, {self._terms!r})"
