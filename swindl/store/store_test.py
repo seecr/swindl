@@ -22,11 +22,12 @@
 #
 ## end license ##
 
-from .store import Store, HasChangedException
+from .store import Store, HasChangedException, QueryParams
 from .indexes import Commit
 
 from sjdbl.base import Base
 from sjdbl.field import Field
+from sil.indexfield import IndexField
 
 import pytest
 
@@ -109,3 +110,28 @@ def test_archive(tmp_path):
 
     assert store.get(book1.qid) is None
     assert store.get(book1.qid, include_archived=True) == book1
+
+
+def test_put_with_only_unindexed_changes(tmp_path):
+    class Note(Base):
+        FIELDS = Base.FIELDS + [Field.str("key"), Field.str("seen")]
+        INDEX = Base.INDEX + [IndexField.untokenized("key")]
+
+        def index_values(self):
+            values = super().index_values()
+            values["key"] = self.key
+            return values
+
+    store = Store(tmp_path, [Note], commit=Commit(immediate=True))
+    note = store.create(Note, values={"key": "a", "seen": "1"})
+    for seen in ["2", "3"]:  # not indexed: only the store changes
+        note.update(seen=seen)
+        store.put(note)
+    assert store.get(note.qid).seen == "3"
+    only_a = {"key": "a", "__archived__": "False"}
+    found = store.query(QueryParams("Note", filters=only_a))
+    assert found.total == 1 and found.objs[0].seen == "3"
+
+    store.archive(note)  # an indexed value changes: the index follows
+    found = store.query(QueryParams("Note", filters=only_a))
+    assert found.total == 0

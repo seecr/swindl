@@ -28,9 +28,14 @@ from sil.indexprofile import IndexProfile
 
 from sjdbl.base import Base, __ARCHIVED__, __ID__
 
+from collections import OrderedDict
+from copy import deepcopy
 import logging
 
 logger = logging.getLogger(__name__)
+
+# How many objects Indexes remembers the last indexed values of (see add_record)
+INDEXED_CACHE_SIZE = 10000
 
 
 class Commit:
@@ -46,6 +51,10 @@ class Indexes:
 
         self._path = path
         self._indexes = {}
+        # qid -> the values last given to the index for it: a put that changes no
+        # indexed value skips the index (and its commit). Bounded; forgetting only
+        # means the next put indexes again.
+        self._indexed = OrderedDict()
         for model in models:
             if not issubclass(model, Base) or not hasattr(model, "INDEX"):
                 logger.info(f"Skipping {model.type_name}: No index fields defined")
@@ -72,6 +81,7 @@ class Indexes:
             index.shutdown()
 
     def delete_all(self):
+        self._indexed.clear()
         for index in self._indexes.values():
             index.delete_all()
 
@@ -92,9 +102,22 @@ class Indexes:
             index_values = obj.index_values()
             index_values[__ID__] = str(obj[__ID__])
             index_values[__ARCHIVED__] = str(obj[__ARCHIVED__])
-            index.add_record(obj.qid, index_values)
+            qid = obj.qid
+            if self._indexed.get(qid) == index_values:
+                # e.g. a changed field that is not indexed: the index has it already
+                self._indexed.move_to_end(qid)
+                return
+            index.add_record(qid, index_values)
+            self._remember(qid, index_values)
+
+    def _remember(self, qid, index_values):
+        self._indexed[qid] = deepcopy(index_values)
+        self._indexed.move_to_end(qid)
+        while len(self._indexed) > INDEXED_CACHE_SIZE:
+            self._indexed.popitem(last=False)
 
     def delete_record(self, obj):
+        self._indexed.pop(obj.qid, None)
         if (index := self.get(obj)) is not None:
             index.delete_record(obj.qid, immediate_commit=True)
 
