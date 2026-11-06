@@ -24,9 +24,9 @@
 
 import pytest
 from sil.indexfield import IndexField
-from sjdbl.base import Base
 from sjdbl.field import Field
 
+from .base import Base
 from .indexes import Commit
 from .store import HasChangedException, QueryParams, Store
 
