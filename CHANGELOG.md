@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 (unreleased)
+## 2.0.0 (2026-11-06)
 
 A new WebAdapter: a form saves only what it sends, empty dates and numbers can be
 cleared, and wrong values give an error per field instead of a crash. See
