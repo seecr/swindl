@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "pytest >= 9.2.0, < 10",
     "pytest-asyncio >= 1.4.1, < 2",
+    "pytest-xdist >= 3.8.0, < 4",
     "seecr-stdlib >= 0.6.5, < 1",
     "setuptools-scm >= 10.3.4, < 11",
     "sil >= 3.0.1, < 4",

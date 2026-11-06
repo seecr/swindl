@@ -22,15 +22,14 @@
 #
 ## end license ##
 
+import logging
+from collections import OrderedDict
+from copy import deepcopy
+
 from sil.index import Index
 from sil.indexfield import IndexField
 from sil.indexprofile import IndexProfile
-
-from sjdbl.base import Base, __ARCHIVED__, __ID__
-
-from collections import OrderedDict
-from copy import deepcopy
-import logging
+from sjdbl.base import __ARCHIVED__, __ID__, Base
 
 logger = logging.getLogger(__name__)
 

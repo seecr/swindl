@@ -22,14 +22,13 @@
 #
 ## end license ##
 
-from .store import Store, HasChangedException, QueryParams
-from .indexes import Commit
-
+import pytest
+from sil.indexfield import IndexField
 from sjdbl.base import Base
 from sjdbl.field import Field
-from sil.indexfield import IndexField
 
-import pytest
+from .indexes import Commit
+from .store import HasChangedException, QueryParams, Store
 
 
 class Person(Base):

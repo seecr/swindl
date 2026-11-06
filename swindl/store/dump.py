@@ -23,8 +23,8 @@
 ## end license ##
 
 import argparse
-import pathlib
 import json
+import pathlib
 
 
 def mkdir(path):

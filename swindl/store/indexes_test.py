@@ -22,12 +22,11 @@
 #
 ## end license ##
 
-from .indexes import Indexes, Commit
-
+from sil.indexfield import IndexField
 from sjdbl.base import Base
 from sjdbl.field import Field
 
-from sil.indexfield import IndexField
+from .indexes import Commit, Indexes
 
 
 class Obj(Base):

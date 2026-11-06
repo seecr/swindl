@@ -22,16 +22,14 @@
 #
 ## end license ##
 
-from .indexes import Query, Indexes
-
-from .utils import mkdir
-
-from sjdbl import Store as JsonStore
-from sjdbl.base import Base, __ID__, __REV__, __ARCHIVED__
+import logging
 
 from seecr_stdlib import first
+from sjdbl import Store as JsonStore
+from sjdbl.base import __ARCHIVED__, __ID__, __REV__, Base
 
-import logging
+from .indexes import Indexes, Query
+from .utils import mkdir
 
 logger = logging.getLogger(__name__)
 

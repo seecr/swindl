@@ -22,11 +22,10 @@
 #
 ## end license ##
 
-from sjdbl.enumerate import EnumerateValue
+from sil.indexfield import IndexField
 from sjdbl.base import Base
+from sjdbl.enumerate import EnumerateValue
 from sjdbl.field import Field
 
-from .store import Store, HasChangedException, QueryParams
-from sil.indexfield import IndexField
-
-from .indexes import Query, Commit
+from .indexes import Commit, Query
+from .store import HasChangedException, QueryParams, Store

@@ -1,0 +1,35 @@
+#!/bin/sh
+# Before `git push`: flake8, isort and the tests, so a push does not bring broken or
+# unformatted code to others. Turn it on once per clone:
+#
+#     git config core.hooksPath .githooks
+#
+# flake8 and isort come from requirements-dev.txt (installed in env/ by the rebuild-venv
+# steps). Push anyway (e.g. work in progress on a branch): git push --no-verify
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# the project's virtualenv if there is one, else whatever python is active
+PYTHON=python3
+[ -x env/bin/python ] && PYTHON=env/bin/python
+
+fail() {
+    echo
+    echo "pre-push: $1; not pushed (git push --no-verify to push anyway)"
+    exit 1
+}
+
+for tool in flake8 isort; do
+    "$PYTHON" -m $tool --version > /dev/null 2>&1 ||
+        fail "$tool is missing: $PYTHON -m pip install -r requirements-dev.txt"
+done
+
+echo "pre-push: flake8"
+"$PYTHON" -m flake8 swindl examples || fail "flake8 found problems"
+
+echo "pre-push: isort"
+"$PYTHON" -m isort --check-only --diff swindl examples ||
+    fail "imports not sorted (isort swindl examples)"
+
+echo "pre-push: tests"
+"$PYTHON" -m pytest -q swindl || fail "tests failed"
