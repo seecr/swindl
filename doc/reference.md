@@ -128,6 +128,25 @@ come from a request.
 A put whose indexed values did not change (only `note`, say) writes the file but leaves the
 index alone, and does not wait for a commit.
 
+**Many puts: `batch()`.** With `Commit(immediate=True)` every put commits the index, and a
+commit is what takes the most time of a put (some milliseconds: hundreds of puts take
+seconds). In a `batch()` block they share one commit, at the end of the block:
+
+```python
+with store.batch():
+    for order in customer.orders:      # e.g. after a rename: their index changes
+        store.put(store.get(order.qid))
+# committed: queries find the changes
+```
+
+- The commit is at the end of the block, also when it raises, before anything after it.
+- Within the block, `list`, `query`, `find_one` and `find_by_field` don't see its puts yet:
+  they search the index. `get` reads the files and does. Use it for loops that put, not for
+  code that searches what it just put.
+- A delete is still committed at once.
+- Blocks can be nested; the outermost one commits.
+- With the default `Commit()` it changes nothing: the timer commits.
+
 ## Searching
 
 ```python
@@ -256,7 +275,7 @@ The WebAdapter needs no store: a model with `ADAPTATIONS` and a dict as form wil
 
 | | |
 |---|---|
-| A query doesn't find what was just put | commit: within 5 seconds, or `Commit(immediate=True)` |
+| A query doesn't find what was just put | commit: within 5 seconds, or `Commit(immediate=True)`; within a `batch()`, at its end |
 | Archived objects in a query | `query` doesn't leave them out; filter on `__archived__: "False"` |
 | A filter on a text field finds nothing | it is one lowercased word: `title="dune"`, not `"Dune"` |
 | `RuntimeError: Unsortable field` | add `sortable=True` to the index field; then reindex |

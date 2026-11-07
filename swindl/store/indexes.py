@@ -24,6 +24,7 @@
 
 import logging
 from collections import OrderedDict
+from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 
 from sil.index import Index
@@ -78,6 +79,15 @@ class Indexes:
     def shutdown(self):
         for index in self._indexes.values():
             index.shutdown()
+
+    @contextmanager
+    def deferred_commit(self):
+        """Every index commits once at the end of the block, not after each change
+        (sil's Index.deferred_commit). See Store.batch."""
+        with ExitStack() as stack:
+            for index in self._indexes.values():
+                stack.enter_context(index.deferred_commit())
+            yield
 
     def delete_all(self):
         self._indexed.clear()

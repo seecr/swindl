@@ -134,3 +134,64 @@ def test_put_with_only_unindexed_changes(tmp_path):
     store.archive(note)  # an indexed value changes: the index follows
     found = store.query(QueryParams("Note", filters=only_a))
     assert found.total == 0
+
+
+class _Commits:
+    """A commit target that counts the commits of an index."""
+
+    def __init__(self):
+        self.count = 0
+
+    def commit(self):
+        self.count += 1
+
+
+class Pet(Base):
+    FIELDS = Base.FIELDS + [Field.str("name")]
+
+
+def _counted(store, cls):
+    commits = _Commits()
+    store._indexes.get(cls)._commit.add_target(commits)
+    return commits
+
+
+def test_batch_commits_once_per_index_at_the_end(tmp_path):
+    store = Store(tmp_path, [Person, Pet], commit=Commit(immediate=True))
+    persons, pets = _counted(store, Person), _counted(store, Pet)
+    with store.batch():
+        people = [store.create(Person, values={"name": f"p{nr}"}) for nr in range(5)]
+        store.create(Pet, values={"name": "Rex"})
+        assert (persons.count, pets.count) == (0, 0)
+        assert list(store.list(Person)) == []  # the index: not yet
+        assert store.get(people[0].qid).name == "p0"  # the files: at once
+    assert (persons.count, pets.count) == (1, 1)
+    assert len(list(store.list(Person))) == 5
+
+    with store.batch():  # nested: the outermost commits
+        with store.batch():
+            store.create(Person, values={"name": "p5"})
+        store.create(Person, values={"name": "p6"})
+        assert persons.count == 1
+    assert persons.count == 2
+
+    with store.batch():  # nothing indexed changed: no commit
+        store.put(people[0])
+    assert persons.count == 2
+
+    store.create(Person, values={"name": "p7"})  # after a block: as before
+    assert persons.count == 3
+
+
+def test_batch_commits_when_it_raises_and_deletes_at_once(tmp_path):
+    store = Store(tmp_path, [Person], commit=Commit(immediate=True))
+    persons = _counted(store, Person)
+    gone = store.create(Person, values={"name": "gone"})
+    with pytest.raises(ValueError):
+        with store.batch():
+            store.delete(gone)  # a delete is committed at once
+            assert persons.count == 2 and list(store.list(Person)) == []
+            store.create(Person, values={"name": "kept"})
+            raise ValueError("oops")
+    assert persons.count == 3
+    assert [p.name for p in store.list(Person)] == ["kept"]

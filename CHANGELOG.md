@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+Needs sil with `Index.deferred_commit` (after 3.0.1).
+
+### Added
+
+- `Store.batch()`: a block of puts with one commit of the index at its end, instead of one
+  per put (`Commit(immediate=True)`). Hundreds of puts go from seconds to under one. Within
+  the block queries don't see its puts yet; a delete is still committed at once. See
+  "Storing" in `doc/reference.md`.
+
 ## 2.0.0 (2026-11-06)
 
 A new WebAdapter: a form saves only what it sends, empty dates and numbers can be

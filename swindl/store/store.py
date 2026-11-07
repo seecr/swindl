@@ -127,6 +127,21 @@ class Store(object):
             self._store.put(obj)
             self._indexes.add_record(obj)
 
+    def batch(self):
+        """A block of many puts with one commit of the index at its end, for
+        `Commit(immediate=True)`: a commit is what takes the most time of a put.
+
+            with store.batch():
+                for order in customer.orders:
+                    store.put(order)
+
+        At the end (also when the block raises) the changes are committed, before
+        anything after it. Within the block, list() and query() don't see its puts
+        yet: they search the index; get() reads the files and does. A delete is
+        still committed at once. Blocks can be nested; the outermost commits. With
+        the default Commit() it changes nothing."""
+        return self._indexes.deferred_commit()
+
     def _class(self, cls):
         if isinstance(cls, Base):
             return cls.__class__.__name__

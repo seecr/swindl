@@ -66,7 +66,10 @@ against a local sjdbl checkout: `pip install -e ../sjdbl`.
 - `get()` reads the files, never the index; `query()` gets ids from the index and reads the
   objects from the files.
 - `get(qrid)` raises `HasChangedException` when the revision on disk differs.
-- A delete is committed to the index at once.
+- A delete is committed to the index at once, also within a `batch()`.
+- `batch()` (sil's `Index.deferred_commit`) only puts off the commit after a put of an
+  immediate-commit store: one commit per changed index at the end of the outermost block,
+  also when it raises.
 
 ## Conventions
 
