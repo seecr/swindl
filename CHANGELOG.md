@@ -1,8 +1,13 @@
 # Changelog
 
-## Unreleased
+## 2.1.0 (2026-11-10)
 
-Needs sil with `Index.deferred_commit` (after 3.0.1).
+Needs sil 3.1.0 (for `Index.deferred_commit`) and sjdbl 0.3.1.
+
+**Reindex after upgrading** when a model has an `IndexField.int`: sil 3.1.0 makes int fields
+fast fields (a range query reads the column), which changes the index schema. An existing
+index with int fields is recreated empty; rebuild it with `store.reindex(models)` (e.g. the
+`actions/reindex` file at startup, see "Reindexing" in `doc/reference.md`).
 
 ### Added
 
