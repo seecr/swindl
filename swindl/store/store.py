@@ -234,8 +234,11 @@ class Store(object):
         )
 
     def delete(self, obj):
-        self._store.delete(obj)
-        self._indexes.delete_record(obj)
+        """Removes it from the files and the index: an object, a reference to one (a
+        Proxy, as references and collections give; nothing is loaded) or its qid."""
+        qid = obj if isinstance(obj, str) else obj.qid
+        self._store.delete(obj if isinstance(obj, Base) else qid)
+        self._indexes.delete_record(qid)
 
     def archive(self, obj):
         obj.mark_archived(self)

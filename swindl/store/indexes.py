@@ -126,9 +126,12 @@ class Indexes:
             self._indexed.popitem(last=False)
 
     def delete_record(self, obj):
-        self._indexed.pop(obj.qid, None)
-        if (index := self.get(obj)) is not None:
-            index.delete_record(obj.qid, immediate_commit=True)
+        """The record of an object, a reference to one (Proxy) or a qid ("Type:id") out
+        of its type's index."""
+        qid = obj if isinstance(obj, str) else obj.qid
+        self._indexed.pop(qid, None)
+        if (index := self.get(qid.split(":", 1)[0])) is not None:
+            index.delete_record(qid, immediate_commit=True)
 
     def search_query(self, obj, *args, **kwargs):
         if (index := self.get(obj)) is not None:

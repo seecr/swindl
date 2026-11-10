@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.0 (2026-11-10)
+
+### Added
+
+- `Store.delete()` also takes a reference to an object (sjdbl's `Proxy`, as references and
+  collections give) or its qid, and deletes it from the files and the index without
+  loading it. A reference used to fail ("No qid found"), and a qid deleted the file but
+  then failed before the index. For an object nothing changes.
+
 ## 2.1.0 (2026-11-10)
 
 Needs sil 3.1.0 (for `Index.deferred_commit`) and sjdbl 0.3.1.

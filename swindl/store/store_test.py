@@ -24,6 +24,7 @@
 
 import pytest
 from sil.indexfield import IndexField
+from sjdbl.base import Proxy
 from sjdbl.field import Field
 
 from .base import Base
@@ -59,6 +60,22 @@ def test_add_get_list_delete(tmp_path):
 
     persons = list(recordstore.list(Person))
     assert len(persons) == 0
+
+
+def test_delete_a_reference_or_a_qid(tmp_path):
+    """A Proxy (as references and collections give) or a qid deletes as the object:
+    from the files and the index, without loading it."""
+    store = Store(tmp_path, [Person], commit=Commit(immediate=True))
+    by_proxy, by_qid, gone = [Person() for _ in range(3)]
+    for p in (by_proxy, by_qid, gone):
+        store.put(p)
+    store.delete(Proxy(store, by_proxy.qid))
+    store.delete(by_qid.qid)
+    assert store.get(by_proxy.qid) is None and store.get(by_qid.qid) is None
+    assert [p.qid for p in store.list(Person)] == [gone.qid]
+    store.delete(gone)
+    store.delete(Proxy(store, gone.qid))  # already gone: nothing to load, no error
+    assert list(store.list(Person)) == []
 
 
 def test_list(tmp_path):

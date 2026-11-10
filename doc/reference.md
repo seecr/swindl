@@ -113,7 +113,7 @@ store.delete(book)                             # gone, from files and index
 | `put(*objs)` | stores the objects and indexes them |
 | `get(qid_or_qrid, include_archived=False, assert_type=None)` | the object, or `None` |
 | `archive(obj)` | marks it archived and puts it |
-| `delete(obj)` | removes it from the files and the index |
+| `delete(obj)` | removes it from the files and the index; `obj` may also be a reference to one (a `Proxy`, as references and collections give; nothing is loaded) or its qid |
 | `enumerator(...)` | sjdbl's `Enumerator`, for sequential numbers |
 | `disconnect()` | closes the indexes |
 
