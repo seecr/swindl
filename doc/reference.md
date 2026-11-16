@@ -45,10 +45,17 @@ store.disconnect()                                     # at shutdown: closes the
 |---|---|
 | `Commit()` (default) | within 5 seconds (`Commit(timeout=...)`); many puts share a commit. Needs a running event loop when the store is made (the timer is an asyncio task) |
 | `Commit(immediate=True)` | at the end of every put, delete or transaction: searchable at once; for tests, scripts and examples |
+| `Commit(on_search=True)` | just before a search, when something changed since the last commit: a save costs no commit, a search finds everything saved before it, and many saves without a search in between share one commit. For writes in bursts (harvesting, many updates at once). The timer still commits what no search asks for (`timeout=0`: nothing) |
 | `Commit(timeout=0)` | only at `store.commit()` and `disconnect()`; for bulk imports |
 
 A `get` always reads the files, so it sees a change at once either way; only queries wait for
-the commit. A delete is committed at once (at the end of its transaction).
+the commit. A delete is committed at once (at the end of its transaction), except with
+`on_search`, where the next search commits it.
+
+Which to choose: `immediate=True` when a save is almost always followed by a search (a
+page that saves and reloads its list: a commit is paid either way, so pay it at once);
+`on_search=True` when saves come in bursts, or without searches after them; the default
+timer when a query may be a few seconds behind.
 
 ## Models
 

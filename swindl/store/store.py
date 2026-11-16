@@ -194,7 +194,7 @@ class Store(object):
                     self._indexes.delete_record(qid)
                 else:
                     self._indexes.add_record(obj)
-        if None in changes.values():
+        if None in changes.values() and not self._indexes.on_search:
             self._indexes.commit()  # a delete is searchable at once
 
     def put(self, *objs):

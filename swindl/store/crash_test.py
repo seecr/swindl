@@ -109,6 +109,18 @@ def test_crash_during_a_transaction(tmp_path, crash_at, expected):
     assert check(tmp_path) == expected
 
 
+def test_crash_with_commit_on_search_before_a_search(tmp_path):
+    """Commit on search, and no search before the crash: nothing was committed to the
+    index; the pending log has the qids, so opening the store indexes them."""
+    code = run_child(
+        tmp_path,
+        "swindl.store.indexes:Indexes.shutdown",
+        commit="Commit(on_search=True, timeout=0)",
+    )
+    assert code == 0
+    assert check(tmp_path) == ["A", "B", "d"]
+
+
 def test_crash_with_the_timer_before_its_commit(tmp_path):
     """With the timer the index commits later: the pending log keeps the qids until
     then, so a crash before that commit loses nothing."""

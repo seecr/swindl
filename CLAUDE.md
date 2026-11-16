@@ -84,7 +84,10 @@ against a local sjdbl checkout: `pip install -e ../sjdbl`.
   a transaction. At open, `Store._recover` indexes the pending qids again from the files.
 - sil's own commit task is off (`commit_timeout=0`); swindl's `Indexes` runs the timer
   (`asyncio.to_thread(self.commit)`) and commits only indexes with changes.
-- A delete is committed at the end of its transaction, in every commit mode.
+- A delete is committed at the end of its transaction, except with `on_search`.
+- `Commit(on_search=True)`: no commit after a change; every search method of `Indexes`
+  calls `_commit_before_search()` first (commits all changed indexes and empties the
+  pending log, under the lock). A new search method must call it too.
 - `put()` stores in sjdbl and then indexes. `Indexes.add_record` skips the index when the
   indexed values of that object did not change since the last put (bounded cache,
   `INDEXED_CACHE_SIZE`; forgetting only means indexing again).

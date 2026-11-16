@@ -14,7 +14,7 @@
 """Crash test: kills a process that runs transactions, at random moments, many times,
 and checks after each kill that nothing was lost or half done.
 
-    PYTHONPATH=. python tools/crashtest.py                 # 200 rounds, both modes
+    PYTHONPATH=. python tools/crashtest.py                 # 200 rounds, all modes
     PYTHONPATH=. python tools/crashtest.py --rounds 2000 --commit timer
 
 The data: GROUPS groups of PER_GROUP items. Every transaction gives all items of one
@@ -109,6 +109,12 @@ def child(data_dir, mode, seed):
         store = Store(data_dir / "data", [Item], commit=Commit(immediate=True))
         for _ in transactions(store, seen_file, rng):
             pass
+    elif mode == "on_search":
+        commit = Commit(on_search=True, timeout=0)
+        store = Store(data_dir / "data", [Item], commit=commit)
+        for nr, _ in enumerate(transactions(store, seen_file, rng)):
+            if nr % 3 == 0:  # a search now and then: it commits
+                store.find_one(Item, group=rng.randrange(GROUPS))
     else:
 
         async def run():
@@ -156,7 +162,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--rounds", type=int, default=200)
     parser.add_argument(
-        "--commit", choices=["immediate", "timer", "both"], default="both"
+        "--commit", choices=["immediate", "timer", "on_search", "all"], default="all"
     )
     parser.add_argument("--dir", type=Path, help="default: a new temporary directory")
     parser.add_argument("--max-delay", type=float, default=0.3, help="seconds")
@@ -170,7 +176,9 @@ def main():
         verify(args.verify)
         return 0
 
-    modes = ["immediate", "timer"] if args.commit == "both" else [args.commit]
+    modes = (
+        ["immediate", "timer", "on_search"] if args.commit == "all" else [args.commit]
+    )
     env = dict(os.environ, PYTHONPATH=os.pathsep.join(sys.path))
     failures = 0
     for mode in modes:

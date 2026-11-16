@@ -54,7 +54,8 @@ that was deleted shows up when it is loaded (`DanglingReferenceError`), and
 `swindl-check` reports it.
 
 **Queries see committed changes.** With the default `Commit()` the index commits every
-5 seconds; a query can be up to that much behind the files. `get` never is.
+5 seconds; a query can be up to that much behind the files. With
+`Commit(immediate=True)` or `Commit(on_search=True)` it never is. `get` never is.
 
 **Durability on macOS is weaker.** `fsync` there does not flush the drive's own cache. A
 development machine is fine; run production on Linux.

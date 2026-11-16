@@ -740,6 +740,14 @@ def run(size, workdir, runs, postgres=None, meilisearch=None, meilisearch_key=No
                 runs,
             )
             side.store.commit()
+            # Commit(on_search=True): the next search commits (not measured here)
+            side.store._indexes.on_search = True
+            out["update_on_search"] = timed(
+                lambda: side.update(rng.choice(sample), f"changed {next(counter)}"),
+                runs,
+            )
+            side.store.commit()
+            side.store._indexes.on_search = False
             side.store._indexes._immediate = True
 
         out["queries"] = {}
@@ -880,6 +888,10 @@ def report(results):
         lines.append(row(
             "change one object, index on the timer (ms)",
             [run[n].get("update_timer", {}).get("median_ms") for n in sides],
+        ))  # fmt: skip
+        lines.append(row(
+            "change one object, index committed by the next search (ms)",
+            [run[n].get("update_on_search", {}).get("median_ms") for n in sides],
         ))  # fmt: skip
         lines.append(row(
             "load, transactions of 1,000 (objects/s)",

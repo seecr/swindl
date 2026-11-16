@@ -27,6 +27,10 @@ schema. Such an index is recreated empty; rebuild it with `store.reindex(models)
 
 - `Store.transaction()`. See "Transactions" in `doc/reference.md`.
 - `Store.commit()`: commit the indexes now (for `Commit(timeout=0)`).
+- `Commit(on_search=True)`: a save commits nothing; the next search commits first, so
+  it finds everything saved before it. Many saves without a search in between share one
+  commit: for harvesting, or many updates at once. A change then costs about a
+  millisecond instead of a commit.
 - Crash safety. The files have a transaction completely or not at all (sjdbl 0.4.0), and
   the index catches up: the qids of a transaction go to `index/pending.log` before the
   files are committed and leave it after the index has committed them; when the store is

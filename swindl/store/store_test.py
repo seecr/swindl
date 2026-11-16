@@ -329,3 +329,30 @@ async def test_the_timer_commits_and_empties_the_pending_log(tmp_path):
     assert len(list(store.list(Person))) == 1
     assert store._indexes.pending() == []
     store.disconnect()
+
+
+def test_commit_on_search(tmp_path):
+    """Commit(on_search=True): saving commits nothing; the next search commits once
+    (for all the saves before it) and finds them; a search without changes commits
+    nothing."""
+    store = Store(tmp_path, [Person], commit=Commit(on_search=True, timeout=0))
+    persons = _counted(store, Person)
+    people = [store.create(Person, values={"name": f"p{nr}"}) for nr in range(5)]
+    assert persons.count == 0
+    assert len(list(store.list(Person))) == 5  # the search commits first
+    assert persons.count == 1
+    assert len(list(store.list(Person))) == 5
+    assert store.find_one(Person, __id__=people[0].id) is not None
+    assert persons.count == 1  # nothing changed: no commit
+    assert store._indexes.pending() == []
+
+    store.delete(people[0])  # a delete waits for the next search too
+    assert persons.count == 1
+    assert len(list(store.list(Person))) == 4
+    assert store.find_by_field(Person, "__id__", people[0].id) == []
+    assert persons.count == 2
+
+
+def test_commit_on_search_or_immediate():
+    with pytest.raises(ValueError):
+        Commit(immediate=True, on_search=True)

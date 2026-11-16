@@ -30,12 +30,21 @@ INDEXED_CACHE_SIZE = 10000
 
 
 class Commit:
-    """When changes become searchable: at the end of every transaction
-    (immediate=True), or every `timeout` seconds (0: only at shutdown)."""
+    """When changes become searchable:
 
-    def __init__(self, timeout=5, immediate=False):
+    - Commit(): every `timeout` seconds (0: only at shutdown);
+    - Commit(immediate=True): at the end of every transaction;
+    - Commit(on_search=True): just before a search, when something changed since the
+      last commit: a save costs no commit, and a search finds everything saved before
+      it. Many saves without a search in between share one commit. The timer still
+      commits changes that no search asks for (timeout=0: none)."""
+
+    def __init__(self, timeout=5, immediate=False, on_search=False):
+        if immediate and on_search:
+            raise ValueError("Commit: immediate or on_search, not both")
         self.timeout = timeout
         self.immediate = immediate
+        self.on_search = on_search
 
 
 class PendingLog:
@@ -81,6 +90,7 @@ class Indexes:
 
         self._path = path
         self._immediate = commit.immediate
+        self.on_search = commit.on_search
         # held while changing and committing: Store passes its own lock, so a commit
         # never empties the pending log in the middle of a transaction
         self._lock = lock or threading.RLock()
@@ -146,6 +156,10 @@ class Indexes:
             finally:
                 self._deferred -= 1
             self._commit_if_immediate()
+
+    def _commit_before_search(self):
+        if self.on_search and self._changed:
+            self.commit()  # (which checks again, with the lock held)
 
     def _commit_if_immediate(self):
         if self._immediate and not self._deferred:
@@ -223,19 +237,23 @@ class Indexes:
                 self._commit_if_immediate()
 
     def search_query(self, obj, *args, **kwargs):
+        self._commit_before_search()
         if (index := self.get(obj)) is not None:
             return index.search_query(*args, **kwargs)
 
     def search_by_term(self, obj, *args, **kwargs):
+        self._commit_before_search()
         if (index := self.get(obj)) is not None:
             return index.search_by_term(*args, **kwargs)
 
     def search_by_query(self, obj, query, *args, **kwargs):
+        self._commit_before_search()
         if (index := self.get(obj)) is not None:
             built_query = query.build(index)
             return index.search(built_query, *args, **kwargs)
 
     def search_by_term_and_query(self, obj, field, value, query, *args, **kwargs):
+        self._commit_before_search()
         if (index := self.get(obj)) is not None:
             query = index.all_of(
                 index.parse_query(query), index.term_query(field, value)
@@ -243,6 +261,7 @@ class Indexes:
             return index.search(query, *args, **kwargs)
 
     def suggest(self, obj, *args, **kwargs):
+        self._commit_before_search()
         if (index := self.get(obj)) is not None:
             return index.suggest(*args, **kwargs)
 
