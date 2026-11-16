@@ -43,7 +43,10 @@ a few words are in many records, most in few.
 - **Writing** is the databases' strong side. One file per object, synced, costs more
   than a row in a page, and a change that must be searchable at once waits for
   tantivy's commit. With the default commit timer a change takes about a millisecond,
-  and is searchable within 5 seconds.
+  and is searchable within 5 seconds. With `Commit(on_search=True)` a change takes
+  under a millisecond too, and the next search commits first (one commit for all the
+  changes before it; that search pays it, which this row leaves out): for changes in
+  bursts, it is the fastest way to write that never gives a stale answer.
 - **What you run**: swindl and SQLite are libraries. PostgreSQL is a server to install,
   secure, back up and upgrade. Meilisearch is a server too, and only an index: your data
   still needs a store next to it, kept in step.
