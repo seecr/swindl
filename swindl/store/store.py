@@ -24,6 +24,7 @@
 
 import logging
 import threading
+from contextlib import contextmanager
 
 from seecr_stdlib import first
 from sjdbl import Store as JsonStore
@@ -96,14 +97,23 @@ class Pages:
 
 
 class Store(object):
+    """Objects in sjdbl's files, searchable through sil's indexes.
+
+    The files are the truth; the index is derived from them. Every change is a
+    transaction (see transaction()): its qids go to the pending log, then the files are
+    committed (sjdbl, crash safe), then the index follows. After a crash the qids in the
+    pending log are indexed again from the files when the store is opened."""
+
     def __init__(self, path, models, commit=None):
+        # Every change holds it around the files and the index, so both see changes in
+        # the same order; a commit of the index holds it too.
+        self._lock = threading.RLock()
         self._store = JsonStore(path=mkdir(path / "store"), models=models)
         self._indexes = Indexes(
-            path=mkdir(path / "index"), models=models, commit=commit
+            path=mkdir(path / "index"), models=models, commit=commit, lock=self._lock
         )
-        # Every change holds it around the files and the index, so both see changes in
-        # the same order (and Indexes' cache is used by one thread at a time).
-        self._lock = threading.RLock()
+        self._tx = None  # qid -> object, or None for a delete, in transaction()
+        self._tx_depth = 0
         self._models = {}
         for model in models:
             if not issubclass(model, Base):
@@ -111,6 +121,22 @@ class Store(object):
             model_name = model.__name__
 
             self._models[model_name] = model
+        self._recover()
+
+    def _recover(self):
+        """Index again what a crash left between the files and the index."""
+        if not (qids := self._indexes.pending()):
+            return
+        with self._lock:
+            for qid in qids:
+                if (obj := self._store.get(qid)) is None:
+                    self._indexes.delete_record(qid)
+                else:
+                    self._indexes.add_record(obj)
+            self._indexes.commit()
+        logger.warning(
+            f"Indexed {len(qids)} object(s) again that a crash left unindexed"
+        )
 
     def enumerator(self, *args, **kwargs):
         return self._store.enumerator(*args, **kwargs)
@@ -126,26 +152,62 @@ class Store(object):
         self.put(obj)
         return obj
 
-    def put(self, *objs):
+    @contextmanager
+    def transaction(self):
+        """All puts and deletes of the block are stored together at its end, or none of
+        them; also when the process crashes. Then the index follows.
+
+            with store.transaction():
+                order.update(state="paid")
+                store.put(order, invoice)
+                store.delete(basket)
+
+        - An exception in the block discards it: files and index are unchanged, and
+          the objects get their old revisions back.
+        - Within the block get() sees its puts and deletes (in this thread); query()
+          and list() don't, they search the index.
+        - With Commit(immediate=True) the index commits once, at the end; otherwise
+          the timer commits. A delete is committed at the end of its transaction.
+        - Blocks can be nested; the outermost one commits. The store's lock is held for
+          the whole block: other threads' changes wait.
+        - It is also the fast way to store many objects: one sync of the files and one
+          commit of the index, instead of one per put."""
         with self._lock:
+            outermost = self._tx is None
+            if outermost:
+                self._tx = {}
+            self._tx_depth += 1
+            try:
+                with self._store.transaction():
+                    yield self
+                    if outermost:
+                        # before the files are committed (when this block ends)
+                        self._indexes.add_pending(list(self._tx))
+            except BaseException:
+                if outermost:
+                    self._tx = None
+                raise
+            finally:
+                self._tx_depth -= 1
+            if outermost:
+                changes, self._tx = self._tx, None
+                self._index(changes)
+
+    def _index(self, changes):
+        with self._indexes.deferred():
+            for qid, obj in changes.items():
+                if obj is None:
+                    self._indexes.delete_record(qid)
+                else:
+                    self._indexes.add_record(obj)
+        if None in changes.values():
+            self._indexes.commit()  # a delete is searchable at once
+
+    def put(self, *objs):
+        with self.transaction():
+            self._store.put(*objs)
             for obj in objs:
-                self._store.put(obj)
-                self._indexes.add_record(obj)
-
-    def batch(self):
-        """A block of many puts with one commit of the index at its end, for
-        `Commit(immediate=True)`: a commit is what takes the most time of a put.
-
-            with store.batch():
-                for order in customer.orders:
-                    store.put(order)
-
-        At the end (also when the block raises) the changes are committed, before
-        anything after it. Within the block, list() and query() don't see its puts
-        yet: they search the index; get() reads the files and does. A delete is
-        still committed at once. Blocks can be nested; the outermost commits. With
-        the default Commit() it changes nothing."""
-        return self._indexes.deferred_commit()
+                self._tx[obj.qid] = obj
 
     def _class(self, cls):
         if isinstance(cls, Base):
@@ -247,15 +309,15 @@ class Store(object):
         """Removes it from the files and the index: an object, a reference to one (a
         Proxy, as references and collections give; nothing is loaded) or its qid."""
         qid = obj if isinstance(obj, str) else obj.qid
-        with self._lock:
+        with self.transaction():
             self._store.delete(obj if isinstance(obj, Base) else qid)
-            self._indexes.delete_record(qid)
+            self._tx[qid] = None
 
     def archive(self, obj):
         obj.mark_archived(self)
 
     def reindex(self, models):
-        with self._lock:
+        with self._lock, self._indexes.deferred():
             self._indexes.delete_all()
             for model in models:
                 if not hasattr(model, "INDEX"):
@@ -265,3 +327,4 @@ class Store(object):
                 for record in records:
                     logger.info(f"Reindexing {record.qid}")
                     self._indexes.add_record(record)
+            self._indexes.commit()

@@ -22,9 +22,12 @@
 #
 ## end license ##
 
+import asyncio
 import logging
+import os
+import threading
 from collections import OrderedDict
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager
 from copy import deepcopy
 
 from sil.index import Index
@@ -39,22 +42,67 @@ INDEXED_CACHE_SIZE = 10000
 
 
 class Commit:
+    """When changes become searchable: at the end of every transaction
+    (immediate=True), or every `timeout` seconds (0: only at shutdown)."""
+
     def __init__(self, timeout=5, immediate=False):
         self.timeout = timeout
         self.immediate = immediate
 
 
+class PendingLog:
+    """The qids whose index entry may not match their file yet: added (and synced)
+    before their files are committed, emptied after the index committed. After a crash
+    these, and only these, are indexed again from the files."""
+
+    def __init__(self, path):
+        self._path = path
+
+    def add(self, qids):
+        if not qids:
+            return
+        new = not self._path.exists()
+        with self._path.open("a") as fp:
+            fp.write("".join(f"{qid}\n" for qid in qids))
+            fp.flush()
+            os.fsync(fp.fileno())
+        if new:
+            _fsync_dir(self._path.parent)
+
+    def qids(self):
+        if not self._path.exists():
+            return []
+        # a line without its newline was being written when the process died: its
+        # files were not committed yet
+        lines = self._path.read_text().split("\n")[:-1]
+        return list(dict.fromkeys(line for line in lines if line))
+
+    def clear(self):
+        if self._path.exists() and self._path.stat().st_size > 0:
+            # not synced: if the truncate is lost, some qids are indexed once more
+            os.truncate(self._path, 0)
+
+
 class Indexes:
-    def __init__(self, path, models, commit=None):
+    """One sil Index per model with an INDEX. swindl commits them itself (sil's own
+    commit task is off), so it knows when the pending log can be emptied."""
+
+    def __init__(self, path, models, commit=None, lock=None):
         if commit is None:
             commit = Commit()
 
         self._path = path
+        self._immediate = commit.immediate
+        # held while changing and committing: Store passes its own lock, so a commit
+        # never empties the pending log in the middle of a transaction
+        self._lock = lock or threading.RLock()
+        self._deferred = 0
+        self._changed = set()  # the indexes with changes that are not committed
+        self._pending = PendingLog(path / "pending.log")
         self._indexes = {}
         # qid -> the values last given to the index for it: a put that changes no
         # indexed value skips the index (and its commit). Bounded; forgetting only
-        # means the next put indexes again. Not thread safe on its own: Store holds
-        # its lock around every change.
+        # means the next put indexes again. Used with self._lock held.
         self._indexed = OrderedDict()
         for model in models:
             if not issubclass(model, Base) or not hasattr(model, "INDEX"):
@@ -73,27 +121,68 @@ class Indexes:
                     ]
                     + model.INDEX
                 ),
-                commit_timeout=commit.timeout,
-                immediate_commit=commit.immediate,
+                commit_timeout=0,
+                immediate_commit=False,
             )
 
+        self._commit_task = None
+        if not commit.immediate and commit.timeout > 0:
+            self._commit_task = asyncio.create_task(self._auto_commit(commit.timeout))
+            logger.info(f"Indexes: auto-commit every {commit.timeout} seconds")
+
+    async def _auto_commit(self, timeout):
+        while True:
+            await asyncio.sleep(timeout)
+            try:
+                await asyncio.to_thread(self.commit)
+            except Exception:
+                # keep committing: an uncaught error would end this task silently
+                logger.exception("Commit failed; retrying after the timeout")
+
+    def commit(self):
+        """Commits every index with changes, then empties the pending log."""
+        with self._lock:
+            changed, self._changed = self._changed, set()
+            for index in changed:
+                index.commit(immediate_commit=True)
+            self._pending.clear()
+
+    @contextmanager
+    def deferred(self):
+        """With Commit(immediate=True): one commit at the end of the (outermost)
+        block instead of one per change."""
+        with self._lock:
+            self._deferred += 1
+            try:
+                yield
+            finally:
+                self._deferred -= 1
+            self._commit_if_immediate()
+
+    def _commit_if_immediate(self):
+        if self._immediate and not self._deferred:
+            self.commit()
+
+    def add_pending(self, qids):
+        self._pending.add(qids)
+
+    def pending(self):
+        return self._pending.qids()
+
     def shutdown(self):
+        if self._commit_task is not None:
+            self._commit_task.cancel()
+        self.commit()
         for index in self._indexes.values():
             index.shutdown()
 
-    @contextmanager
-    def deferred_commit(self):
-        """Every index commits once at the end of the block, not after each change
-        (sil's Index.deferred_commit). See Store.batch."""
-        with ExitStack() as stack:
-            for index in self._indexes.values():
-                stack.enter_context(index.deferred_commit())
-            yield
-
     def delete_all(self):
-        self._indexed.clear()
-        for index in self._indexes.values():
-            index.delete_all()
+        with self._lock:
+            self._indexed.clear()
+            for index in self._indexes.values():
+                index.delete_all()
+                self._changed.add(index)
+            self._commit_if_immediate()
 
     def get(self, cls):
         if isinstance(cls, Base):
@@ -113,12 +202,15 @@ class Indexes:
             index_values[__ID__] = str(obj[__ID__])
             index_values[__ARCHIVED__] = str(obj[__ARCHIVED__])
             qid = obj.qid
-            if self._indexed.get(qid) == index_values:
-                # e.g. a changed field that is not indexed: the index has it already
-                self._indexed.move_to_end(qid)
-                return
-            index.add_record(qid, index_values)
-            self._remember(qid, index_values)
+            with self._lock:
+                if self._indexed.get(qid) == index_values:
+                    # e.g. a changed field that is not indexed: the index has it
+                    self._indexed.move_to_end(qid)
+                    return
+                index.add_record(qid, index_values)
+                self._changed.add(index)
+                self._remember(qid, index_values)
+                self._commit_if_immediate()
 
     def _remember(self, qid, index_values):
         self._indexed[qid] = deepcopy(index_values)
@@ -130,9 +222,12 @@ class Indexes:
         """The record of an object, a reference to one (Proxy) or a qid ("Type:id") out
         of its type's index."""
         qid = obj if isinstance(obj, str) else obj.qid
-        self._indexed.pop(qid, None)
-        if (index := self.get(qid.split(":", 1)[0])) is not None:
-            index.delete_record(qid, immediate_commit=True)
+        with self._lock:
+            self._indexed.pop(qid, None)
+            if (index := self.get(qid.split(":", 1)[0])) is not None:
+                index.delete_record(qid)
+                self._changed.add(index)
+                self._commit_if_immediate()
 
     def search_query(self, obj, *args, **kwargs):
         if (index := self.get(obj)) is not None:
@@ -189,3 +284,11 @@ class Query:
 
     def __repr__(self):
         return f"Query({self._query!r}, {self._terms!r})"
+
+
+def _fsync_dir(path):
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)

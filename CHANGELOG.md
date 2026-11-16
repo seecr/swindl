@@ -1,5 +1,36 @@
 # Changelog
 
+## 3.0.0 (2026-11-16)
+
+Crash-safe transactions over files and index. Needs sjdbl 0.4.0.
+
+### Breaking changes
+
+- `Store.batch()` is replaced by `Store.transaction()`: all puts and deletes of the block
+  are stored together at its end, or none of them. A failing block now stores nothing
+  (with `batch()` its puts stayed in the files and the index).
+- swindl commits the indexes itself; sil's own commit task is not used any more.
+  `Indexes.deferred_commit()` is gone (`Indexes.deferred()` is its replacement inside
+  swindl).
+
+### Added
+
+- `Store.transaction()`. See "Transactions" in `doc/reference.md`.
+- Crash safety. The files have a transaction completely or not at all (sjdbl 0.4.0), and
+  the index catches up: the qids of a transaction go to `index/pending.log` before the
+  files are committed and leave it after the index has committed them; when the store is
+  opened, what is still in it is indexed again from the files. See "After a crash".
+- `Store.reindex()` commits once at the end (it used to commit after every object with
+  `Commit(immediate=True)`).
+
+### Upgrading from 2.x
+
+- `with store.batch():` becomes `with store.transaction():`. Code that relied on the puts
+  of a failing block being kept should catch the exception inside the block.
+- A subclass of `Store` that overrides `batch()` overrides `transaction()` instead.
+- Within a transaction other threads no longer see its changes through `get()` before
+  the block ends.
+
 ## 2.2.1 (2026-11-16)
 
 ### Fixed

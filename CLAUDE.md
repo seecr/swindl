@@ -11,9 +11,13 @@ in from a web form. GPLv2. Maintained by Seecr (Johan Jonkers, Thijs Janssen).
   at class definition that every `Adapt` names a field. Models import it from
   `swindl.store`.
 - `swindl/store/store.py` – `Store` (create/put/get/list/query/find_one/find_by_field/
-  archive/delete/reindex), `QueryParams`, `QueryResult`, `Pages`, `HasChangedException`
-- `swindl/store/indexes.py` – `Indexes` (one sil `Index` per model with an `INDEX`),
-  `Commit` (when changes become searchable), `Query` (query text plus exact terms)
+  archive/delete/transaction/reindex, recovery at open), `QueryParams`, `QueryResult`,
+  `Pages`, `HasChangedException`
+- `swindl/store/indexes.py` – `Indexes` (one sil `Index` per model with an `INDEX`; does
+  the commits itself), `Commit` (when changes become searchable), `PendingLog`, `Query`
+  (query text plus exact terms)
+- `swindl/store/crash_test.py` – real crashes (a child process that `os._exit`s) at each
+  step of a transaction
 - `swindl/webadapter.py` – `from_form`, `to_form`, `Adapt`, the checks (`at_least`,
   `at_most`, `max_length`, `one_of`), `FieldError`, `FormErrors`
 - `swindl/store/dump.py` – `swindl-load-sdbl-dump`: converts an old sdbl dump. Transient,
@@ -60,6 +64,14 @@ against a local sjdbl checkout: `pip install -e ../sjdbl`.
 
 ## Invariants to keep
 
+- Every change is a transaction (`put`/`delete` alone are one each), with `Store._lock`
+  held: qids to `index/pending.log` (synced) → sjdbl commits the files → the index
+  changes → commit (immediate, or the timer) → `pending.log` emptied. The pending log is
+  only emptied by `Indexes.commit()`, which holds the same lock, so never in the middle of
+  a transaction. At open, `Store._recover` indexes the pending qids again from the files.
+- sil's own commit task is off (`commit_timeout=0`); swindl's `Indexes` runs the timer
+  (`asyncio.to_thread(self.commit)`) and commits only indexes with changes.
+- A delete is committed at the end of its transaction, in every commit mode.
 - `put()` stores in sjdbl and then indexes. `Indexes.add_record` skips the index when the
   indexed values of that object did not change since the last put (bounded cache,
   `INDEXED_CACHE_SIZE`; forgetting only means indexing again).
@@ -68,10 +80,6 @@ against a local sjdbl checkout: `pip install -e ../sjdbl`.
 - `get()` reads the files, never the index; `query()` gets ids from the index and reads the
   objects from the files.
 - `get(qrid)` raises `HasChangedException` when the revision on disk differs.
-- A delete is committed to the index at once, also within a `batch()`.
-- `batch()` (sil's `Index.deferred_commit`) only puts off the commit after a put of an
-  immediate-commit store: one commit per changed index at the end of the outermost block,
-  also when it raises.
 
 ## Conventions
 

@@ -173,45 +173,60 @@ def _counted(store, cls):
     return commits
 
 
-def test_batch_commits_once_per_index_at_the_end(tmp_path):
+def test_a_transaction_commits_once_per_index_at_the_end(tmp_path):
     store = Store(tmp_path, [Person, Pet], commit=Commit(immediate=True))
     persons, pets = _counted(store, Person), _counted(store, Pet)
-    with store.batch():
+    with store.transaction():
         people = [store.create(Person, values={"name": f"p{nr}"}) for nr in range(5)]
         store.create(Pet, values={"name": "Rex"})
         assert (persons.count, pets.count) == (0, 0)
         assert list(store.list(Person)) == []  # the index: not yet
-        assert store.get(people[0].qid).name == "p0"  # the files: at once
+        assert store.get(people[0].qid).name == "p0"  # this thread sees its puts
     assert (persons.count, pets.count) == (1, 1)
     assert len(list(store.list(Person))) == 5
 
-    with store.batch():  # nested: the outermost commits
-        with store.batch():
+    with store.transaction():  # nested: the outermost commits
+        with store.transaction():
             store.create(Person, values={"name": "p5"})
         store.create(Person, values={"name": "p6"})
         assert persons.count == 1
-    assert persons.count == 2
+    assert (persons.count, pets.count) == (2, 1)
 
-    with store.batch():  # nothing indexed changed: no commit
+    with store.transaction():  # nothing indexed changed: no commit
         store.put(people[0])
     assert persons.count == 2
 
-    store.create(Person, values={"name": "p7"})  # after a block: as before
+    store.create(Person, values={"name": "p7"})  # a put alone: its own transaction
     assert persons.count == 3
 
 
-def test_batch_commits_when_it_raises_and_deletes_at_once(tmp_path):
+def test_an_exception_discards_the_transaction(tmp_path):
     store = Store(tmp_path, [Person], commit=Commit(immediate=True))
     persons = _counted(store, Person)
-    gone = store.create(Person, values={"name": "gone"})
+    kept = store.create(Person, values={"name": "kept"})
+    rev = kept["__rev__"]
     with pytest.raises(ValueError):
-        with store.batch():
-            store.delete(gone)  # a delete is committed at once
-            assert persons.count == 2 and list(store.list(Person)) == []
-            store.create(Person, values={"name": "kept"})
+        with store.transaction():
+            store.delete(kept)
+            kept_again = store.create(Person, values={"name": "new"})
+            assert store.get(kept.qid) is None
             raise ValueError("oops")
-    assert persons.count == 3
+    assert persons.count == 1
     assert [p.name for p in store.list(Person)] == ["kept"]
+    assert store.get(kept.qid).name == "kept" and store.get(kept_again.qid) is None
+    assert kept["__rev__"] == rev
+    assert store._indexes.pending() == []
+
+
+def test_a_delete_is_searchable_at_once_also_with_the_timer(tmp_path):
+    store = Store(tmp_path, [Person], commit=Commit(timeout=0))
+    person = store.create(Person, values={"name": "p"})
+    assert list(store.list(Person)) == []  # not committed: no timer
+    store._indexes.commit()
+    assert len(list(store.list(Person))) == 1
+    store.delete(person)
+    assert list(store.query(QueryParams(Person)).objs) == []
+    assert store.query(QueryParams(Person)).total == 0
 
 
 class Counter(Base):
@@ -310,3 +325,18 @@ def test_the_index_gets_the_last_saved_values(tmp_path, monkeypatch):
     assert store.get(counter.qid).count == 2
     assert store.find_one(Counter, count="2") is not None
     assert store.find_one(Counter, count="1") is None
+
+
+async def test_the_timer_commits_and_empties_the_pending_log(tmp_path):
+    import asyncio
+
+    store = Store(tmp_path, [Person], commit=Commit(timeout=0.05))
+    store.create(Person, values={"name": "p"})
+    assert store._indexes.pending() != []
+    for _ in range(100):
+        await asyncio.sleep(0.02)
+        if store._indexes.pending() == []:
+            break
+    assert len(list(store.list(Person))) == 1
+    assert store._indexes.pending() == []
+    store.disconnect()

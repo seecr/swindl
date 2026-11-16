@@ -15,6 +15,8 @@ PYTHONPATH=. python examples/webadapter.py   # forms: converting, checking, erro
 - [Setting up a store](#setting-up-a-store)
 - [Models](#models)
 - [Storing](#storing)
+- [Transactions](#transactions)
+- [After a crash](#after-a-crash)
 - [Searching](#searching)
 - [Reindexing](#reindexing)
 - [Forms: the WebAdapter](#forms-the-webadapter)
@@ -40,11 +42,12 @@ store.disconnect()                                     # at shutdown: closes the
 
 | | |
 |---|---|
-| `Commit()` (default) | within 5 seconds (`Commit(timeout=...)`); many puts share a commit |
-| `Commit(immediate=True)` | at every put: searchable at once; for tests and examples |
+| `Commit()` (default) | within 5 seconds (`Commit(timeout=...)`); many puts share a commit. Needs a running event loop when the store is made (the timer is an asyncio task) |
+| `Commit(immediate=True)` | at the end of every put, delete or transaction: searchable at once; for tests, scripts and examples |
+| `Commit(timeout=0)` | only at `disconnect()` (or `store._indexes.commit()`); for bulk imports |
 
 A `get` always reads the files, so it sees a change at once either way; only queries wait for
-the commit. A delete is committed at once.
+the commit. A delete is committed at once (at the end of its transaction).
 
 ## Models
 
@@ -115,7 +118,8 @@ store.delete(book)                             # gone, from files and index
 | `archive(obj)` | marks it archived and puts it |
 | `delete(obj)` | removes it from the files and the index; `obj` may also be a reference to one (a `Proxy`, as references and collections give; nothing is loaded) or its qid |
 | `enumerator(...)` | sjdbl's `Enumerator`, for sequential numbers |
-| `disconnect()` | closes the indexes |
+| `transaction()` | a block whose puts and deletes are stored together, or not at all; see [Transactions](#transactions) |
+| `disconnect()` | commits and closes the indexes |
 
 **qid and qrid.** `obj.qid` is `"Book:<id>"`; `obj.qrid` adds the revision,
 `"Book:<id>:<rev>"`. The revision changes at every put. `get(qrid)` raises
@@ -128,24 +132,56 @@ come from a request.
 A put whose indexed values did not change (only `note`, say) writes the file but leaves the
 index alone, and does not wait for a commit.
 
-**Many puts: `batch()`.** With `Commit(immediate=True)` every put commits the index, and a
-commit is what takes the most time of a put (some milliseconds: hundreds of puts take
-seconds). In a `batch()` block they share one commit, at the end of the block:
+## Transactions
+
+Every put and delete is a transaction of its own. A `transaction()` block makes one of
+several:
 
 ```python
-with store.batch():
-    for order in customer.orders:      # e.g. after a rename: their index changes
-        store.put(store.get(order.qid))
-# committed: queries find the changes
+with store.transaction():
+    order.update(state="paid")
+    store.put(order, invoice)
+    store.delete(basket)
+# stored, all of it; and indexed
 ```
 
-- The commit is at the end of the block, also when it raises, before anything after it.
-- Within the block, `list`, `query`, `find_one` and `find_by_field` don't see its puts yet:
-  they search the index. `get` reads the files and does. Use it for loops that put, not for
-  code that searches what it just put.
-- A delete is still committed at once.
+- At the end of the block everything is stored together, or nothing is: an exception in
+  the block discards it (files and index unchanged, the objects get their old revisions
+  back), and a crash halfway is finished or undone when the store is opened again (see
+  [After a crash](#after-a-crash)).
+- Within the block, `get` sees its puts and deletes (in this thread; other threads see
+  them when the block is done). `list`, `query`, `find_one` and `find_by_field` don't: they
+  search the index, which follows at the end.
+- The store's lock is held for the whole block: changes from other threads wait. Keep
+  blocks short in a web application.
 - Blocks can be nested; the outermost one commits.
-- With the default `Commit()` it changes nothing: the timer commits.
+- It is also the fast way to store many objects: one sync of the files and one commit of
+  the index for the whole block, instead of one per put.
+
+```python
+with store.transaction():
+    for order in customer.orders:      # e.g. after a rename: their index changes
+        store.put(store.get(order.qid))
+```
+
+## After a crash
+
+The files are the truth and the index is derived from them, so swindl makes sure of two
+things when the process (or the machine) dies:
+
+1. **The files have a transaction completely or not at all.** sjdbl writes the new
+   versions to temporary files first, and with more than one file it commits by writing
+   `store/commit.log`. A commit that was interrupted is finished when the store is opened;
+   temporary files of a transaction that never committed are removed.
+2. **The index catches up.** Before the files are committed, the qids of the transaction go
+   to `index/pending.log`; after the index has committed them they are removed. When the
+   store is opened, the objects still in it are indexed again from the files (a qid
+   without a file is removed from the index). With the default `Commit()` this also covers
+   the changes of the last seconds before a crash that were not committed yet.
+
+Both are logged as a warning and need nothing from the application. This is not a reindex:
+only what the crash left unfinished is done. See `doc/guarantees.md` for what is promised,
+and what is not.
 
 ## Searching
 
@@ -210,9 +246,10 @@ order in which the objects were indexed. With a query and no sort, the best matc
 
 `store.reindex(models)` empties the indexes and indexes every object of the given models
 again from the files. It is needed after a change to a model's `INDEX` or `index_values`, and
-only then. swindl never does it by itself: the application offers it as an explicit step,
-e.g. a file `<data>/actions/reindex` that the server checks at startup (as wwft-frontend and
-enigma do), and the CHANGELOG of the release says when to do it.
+only then. swindl never does it by itself, and application code doesn't either: the
+application offers it as an explicit step, e.g. a file `<data>/actions/reindex` that the
+server checks at startup, and the CHANGELOG of the release says when to do it. When a
+model's index fields changed, sil starts that index empty and logs that it needs a reindex.
 
 ## Forms: the WebAdapter
 
@@ -275,7 +312,9 @@ The WebAdapter needs no store: a model with `ADAPTATIONS` and a dict as form wil
 
 | | |
 |---|---|
-| A query doesn't find what was just put | commit: within 5 seconds, or `Commit(immediate=True)`; within a `batch()`, at its end |
+| A query doesn't find what was just put | commit: within 5 seconds, or `Commit(immediate=True)`; within a `transaction()`, at its end |
+| `RuntimeError: no running event loop` when making the store | the default `Commit()` starts a timer: make the store in the application's startup, or use `Commit(immediate=True)` / `Commit(timeout=0)` in scripts |
+| A warning about `commit.log` or `pending.log` at startup | the process died during a transaction; it was finished, nothing to do |
 | Archived objects in a query | `query` doesn't leave them out; filter on `__archived__: "False"` |
 | A filter on a text field finds nothing | it is one lowercased word: `title="dune"`, not `"Dune"` |
 | `RuntimeError: Unsortable field` | add `sortable=True` to the index field; then reindex |
