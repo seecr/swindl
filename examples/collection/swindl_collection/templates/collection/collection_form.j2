@@ -1,0 +1,36 @@
+{#
+ # A new or existing collection (collection_new, collection_edit). On errors collection_save
+ # renders it again in the modal, with what was typed (to_form(..., form=form)) and the
+ # errors per field (the WebAdapter's FormErrors).
+ #}
+{% extends "swl/modal-content.j2" %}
+{% from "collection/_field.j2" import field %}
+
+{% block modal_title %}{{ "Edit collection" if collection else "New collection" }}{% endblock %}
+
+{% block modal_content %}
+<form class="swl-stack" hx-post="{{ register('collection_save') }}">
+    {% if collection %}<input type="hidden" name="collection_id" value="{{ collection.qid }}">{% endif %}
+    {{ field("name", "Name", values, errors) }}
+    <div class="swl-field">
+        <label for="f-kind">What is in it</label>
+        <select id="f-kind" name="kind" class="{{ SWL.ui.select }}">
+            {% for kind, labels in kinds.items() %}
+            <option value="{{ kind }}" {{ "selected" if values.get("kind") == kind }}>{{ labels.label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="swl-field">
+        <label for="f-description">Description <span class="swl-muted">(optional)</span></label>
+        <textarea id="f-description" name="description" class="{{ SWL.ui.textarea }}" rows="2">{{ values.get("description", "") }}</textarea>
+    </div>
+    <label class="swl-check" for="f-public">
+        <input id="f-public" type="checkbox" name="public" class="{{ SWL.ui.checkbox }}" {{ "checked" if values.get("public") in (True, "True", "on") }}>
+        Public: anyone with the link can see it
+    </label>
+    <div class="swl-end">
+        <button type="button" class="{{ SWL.ui.button }}" data-swl-close>Cancel</button>
+        <button type="submit" class="{{ SWL.ui.button_primary }}">Save</button>
+    </div>
+</form>
+{% endblock %}

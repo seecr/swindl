@@ -1,0 +1,24 @@
+{# Login page. The login action (swl.views.account) answers with a redirect to "next". #}
+{% extends "swl/base.j2" %}
+
+{% block head_extra %}
+        <script src="/static/swl/theme.js"></script>
+        <link rel="stylesheet" href="/app/collection.css">
+{% endblock %}
+
+{% block body %}
+<main class="swl-container col-login">
+    <h1><i class="bi bi-vinyl"></i> Collection</h1>
+    <form class="swl-stack" hx-post="{{ register('login') }}">
+        <input type="hidden" name="next" value="{{ next }}">
+        <input type="text" name="username" class="{{ SWL.ui.input }}" placeholder="Username" autocomplete="username" aria-label="Username">
+        <input type="password" name="password" class="{{ SWL.ui.input }}" placeholder="Password" autocomplete="current-password" aria-label="Password">
+        <button type="submit" class="{{ SWL.ui.button_primary }}">Log in</button>
+    </form>
+    <p class="swl-muted swl-small">Demo account: {{ demo_user }} / {{ demo_password }}</p>
+</main>
+{% endblock %}
+
+{% block body_extra %}
+<script type="module" id="swl-run" src="/static/swl/swl-run.js"></script>
+{% endblock %}

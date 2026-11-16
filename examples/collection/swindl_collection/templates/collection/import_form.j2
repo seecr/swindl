@@ -1,0 +1,29 @@
+{#
+ # Import a list into a collection (collection_import). The rows are checked as a form
+ # would be; one wrong value and nothing is imported (one transaction).
+ #}
+{% extends "swl/modal-content.j2" %}
+
+{% block modal_title %}Import into {{ collection.name }}{% endblock %}
+
+{% block modal_content %}
+<form class="swl-stack" hx-post="{{ register('collection_import_save') }}">
+    <input type="hidden" name="collection_id" value="{{ collection.qid }}">
+    <p class="swl-small">Paste CSV with a header row. Columns: {{ columns|join(", ") }}
+        (or "{{ collection.labels.maker }}", "{{ collection.labels.code }}", "{{ collection.labels.format }}").
+        Only <em>title</em> is required. Everything is imported, or nothing.</p>
+    <textarea name="text" class="{{ SWL.ui.textarea }} col-mono" rows="10"
+              placeholder="title,{{ collection.labels.maker|lower }},year&#10;Kind of Blue,Miles Davis,1959">{{ text }}</textarea>
+    {% if errors %}
+    <div class="col-error">
+        Nothing was imported:
+        <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        {% if more %}and {{ more }} more{% endif %}
+    </div>
+    {% endif %}
+    <div class="swl-end">
+        <button type="button" class="{{ SWL.ui.button }}" data-swl-close>Cancel</button>
+        <button type="submit" class="{{ SWL.ui.button_primary }}">Import</button>
+    </div>
+</form>
+{% endblock %}

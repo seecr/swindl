@@ -29,7 +29,9 @@ matches the files.
 - `doc/reference.md`: the reference.
 - `doc/guarantees.md`: what is promised, what not, the limits, backups.
 - `doc/webadapter.md`: the WebAdapter.
-- `examples/`: runnable examples (`PYTHONPATH=. python examples/store.py`).
+- `examples/`: runnable examples (`PYTHONPATH=. python examples/store.py`), and
+  `examples/collection/`: an application to keep track of a record (or LEGO)
+  collection, built on SWL and swindl.
 - `CHANGELOG.md`: what changed, and how to upgrade.
 
 GPLv2, by [Seecr](https://seecr.nl).

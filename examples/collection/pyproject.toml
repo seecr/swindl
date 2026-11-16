@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swindl-collection-example"
+version = "1.0.0"
+description = "Example application for swindl and SWL: your collections (records, LEGO, ...)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["swindl >= 3, < 4", "swl", "uvicorn"]
+
+[project.scripts]
+swindl-collection = "swindl_collection.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["swindl_collection*"]
+
+[tool.setuptools.package-data]
+swindl_collection = ["templates/collection/*.j2", "static/*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

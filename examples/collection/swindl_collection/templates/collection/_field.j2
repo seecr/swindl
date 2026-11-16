@@ -1,0 +1,9 @@
+{# A labelled form field with its error, for the forms below. #}
+{% macro field(name, label, values, errors, type="text", hint="", attrs="") -%}
+<div class="swl-field">
+    <label for="f-{{ name }}">{{ label }}{% if hint %} <span class="swl-muted">{{ hint }}</span>{% endif %}</label>
+    <input id="f-{{ name }}" type="{{ type }}" name="{{ name }}" value="{{ values.get(name, '') }}"
+           class="{{ SWL.ui.input }} {{ 'col-invalid' if name in errors }}" {{ attrs|safe }}>
+    {% if name in errors %}<div class="col-error">{{ errors[name] }}</div>{% endif %}
+</div>
+{%- endmacro %}

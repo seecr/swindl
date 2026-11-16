@@ -1,0 +1,53 @@
+{#
+ # A new or existing item (item_new, item_edit). The labels follow the collection's kind:
+ # "Artist" and "Catalogue no." for records, "Theme" and "Set number" for LEGO.
+ # The maker field suggests what is already in the collection (maker_options, a drilldown).
+ #}
+{% extends "swl/modal-content.j2" %}
+{% from "collection/_field.j2" import field %}
+
+{% block modal_title %}{{ ("Edit " if item else "Add a ") ~ labels.item }}{% endblock %}
+
+{% block modal_content %}
+<form class="swl-stack" hx-post="{{ register('item_save') }}">
+    {% if item %}<input type="hidden" name="item_id" value="{{ item.qid }}">{% endif %}
+    <div class="swl-field">
+        <label for="f-collection">Collection</label>
+        <select id="f-collection" name="collection_id" class="{{ SWL.ui.select }}">
+            {% for c in collections %}
+            <option value="{{ c.qid }}" {{ "selected" if c.qid == collection.qid }}>{{ c.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {{ field("title", "Title", values, errors) }}
+    {{ field("maker", labels.maker, values, errors,
+             attrs='list="maker-options" autocomplete="off" hx-post="' ~ register('maker_options') ~ '" hx-trigger="input changed delay:200ms" hx-include="#f-collection"') }}
+    <datalist id="maker-options"></datalist>
+    <div class="col-row">
+        {{ field("year", "Year", values, errors, attrs='inputmode="numeric"') }}
+        {{ field("code", labels.code, values, errors) }}
+        {{ field("format", labels.format, values, errors, attrs='list="format-options"') }}
+        <datalist id="format-options">{% for f in labels.formats %}<option value="{{ f }}">{% endfor %}</datalist>
+    </div>
+    <div class="col-row">
+        <div class="swl-field">
+            <label for="f-condition">Condition</label>
+            <select id="f-condition" name="condition" class="{{ SWL.ui.select }} {{ 'col-invalid' if 'condition' in errors }}">
+                <option value=""></option>
+                {% for c in conditions %}<option value="{{ c }}" {{ "selected" if values.get("condition") == c }}>{{ c }}</option>{% endfor %}
+            </select>
+        </div>
+        {{ field("acquired", "Acquired", values, errors, type="date") }}
+        {{ field("price", "Price", values, errors, attrs='inputmode="decimal"') }}
+    </div>
+    {{ field("tags", "Tags", values, errors, hint="(separated by commas)") }}
+    <div class="swl-field">
+        <label for="f-notes">Notes</label>
+        <textarea id="f-notes" name="notes" class="{{ SWL.ui.textarea }}" rows="2">{{ values.get("notes", "") }}</textarea>
+    </div>
+    <div class="swl-end">
+        <button type="button" class="{{ SWL.ui.button }}" data-swl-close>Cancel</button>
+        <button type="submit" class="{{ SWL.ui.button_primary }}">Save</button>
+    </div>
+</form>
+{% endblock %}

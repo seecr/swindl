@@ -1,0 +1,23 @@
+{# Rendered by collections_list into the "collections" placeholder. #}
+<ul class="col-collections">
+    <li class="{{ 'col-active' if not selected }}">
+        <button type="button" class="swl-link" hx-post="{{ register('items_list') }}" hx-include="#screen"
+                hx-vals='{"collection": ""}'>All my collections</button>
+    </li>
+    {% for collection in collections %}
+    <li class="{{ 'col-active' if collection.qid == selected }}">
+        <button type="button" class="swl-link" hx-post="{{ register('items_list') }}" hx-include="#screen"
+                hx-vals='{{ {"collection": collection.qid}|tojson }}'>{{ collection.name }}</button>
+        {% if collection.public %}<i class="bi bi-globe swl-muted" title="Public"></i>{% endif %}
+        {% if collection.qid == selected %}
+        <div class="col-collection-actions" hx-vals:inherited='{{ {"collection_id": collection.qid}|tojson }}'>
+            <button type="button" class="swl-link swl-small" hx-post="{{ register('collection_edit') }}">Edit</button>
+            <button type="button" class="swl-link swl-small" hx-post="{{ register('collection_import') }}">Import</button>
+            {% if collection.public %}<a class="swl-small" href="/c/{{ collection.id }}" target="_blank">Public page</a>{% endif %}
+            <button type="button" class="swl-link swl-small col-danger" hx-post="{{ register('collection_delete') }}"
+                    hx-confirm="Delete '{{ collection.name }}' and everything in it?">Delete</button>
+        </div>
+        {% endif %}
+    </li>
+    {% endfor %}
+</ul>

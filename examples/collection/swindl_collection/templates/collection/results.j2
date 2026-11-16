@@ -1,0 +1,61 @@
+{#
+ # Rendered by items_list into the "results" placeholder: one page of items.
+ # Every row carries its item's qid (hx-vals:inherited), so edit and delete post it.
+ #}
+{% set pages = result.pages %}
+<div class="col-summary">
+    {% if result.total == 0 %}
+        {% if screen.q %}<strong>Not in your collection</strong>: nothing matches "{{ screen.q }}".
+        {% else %}Nothing here yet. Add something, or import a list.{% endif %}
+    {% elif screen.q %}
+        <strong>You have {{ result.total }}</strong> matching {{ "item" if result.total == 1 else "items" }}
+    {% else %}
+        {{ result.total }} {{ "item" if result.total == 1 else "items" }}
+    {% endif %}
+    {% for field, value in screen.f %}
+    <button type="button" class="col-chip" title="Remove this filter"
+            hx-post="{{ register('items_list') }}" hx-include="#screen"
+            hx-vals='{{ {"remove": field ~ "=" ~ value}|tojson }}'>
+        {{ names.get(value, value) if field == "collection" else (value ~ "s" if field == "decade" else value) }} <i class="bi bi-x"></i>
+    </button>
+    {% endfor %}
+</div>
+
+{% if result.objs %}
+<table class="{{ SWL.ui.table }} col-table">
+    <tbody>
+    {% for item in result.objs %}
+        <tr class="{{ 'col-highlight' if item.qid == highlight }}" hx-vals:inherited='{{ {"item_id": item.qid}|tojson }}'>
+            <td>
+                <button type="button" class="swl-link col-title" hx-post="{{ register('item_edit') }}">{{ item.title }}</button>
+                <div class="swl-muted swl-small">
+                    {{ item.maker }}{% if item.year %} &middot; {{ item.year }}{% endif %}
+                    {% if item.format %} &middot; {{ item.format }}{% endif %}
+                    {% if item.code %} &middot; <span class="col-code">{{ item.code }}</span>{% endif %}
+                    {% if not collection %} &middot; {{ names.get(item.collection.qid, "") }}{% endif %}
+                </div>
+            </td>
+            <td class="col-tags">
+                {% for tag in item.tags %}<span class="col-tag">{{ tag }}</span>{% endfor %}
+            </td>
+            <td class="col-fit">
+                <button type="button" class="swl-icon-button swl-icon-danger" aria-label="Delete"
+                        hx-post="{{ register('item_delete') }}" hx-confirm="Delete '{{ item.title }}'?">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if pages.prev is not none or pages.next is not none %}
+<nav class="col-pages">
+    {% for label, nr in [("First", pages.first), ("Previous", pages.prev), ("Next", pages.next), ("Last", pages.last)] %}
+    <button type="button" class="{{ SWL.ui.button }} {{ SWL.ui.small }}" {{ "disabled" if nr is none }}
+            hx-post="{{ register('items_list') }}" hx-include="#screen" hx-vals='{{ {"goto": nr}|tojson }}'>{{ label }}</button>
+    {% endfor %}
+    <span class="swl-muted swl-small">{{ result.start }}-{{ result.stop }} of {{ result.total }}</span>
+</nav>
+{% endif %}
+{% endif %}

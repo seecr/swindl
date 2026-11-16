@@ -1,0 +1,79 @@
+{#
+ # The page: your collections on the left, the search with its results and facets on the
+ # right. Everything that changes loads itself (placeholders); the page only holds the
+ # #screen form with what you are looking at.
+ #}
+{% extends "swl/base.j2" %}
+{% from "swl/placeholder.j2" import placeholder %}
+
+{% block head_extra %}
+        <script src="/static/swl/theme.js"></script>
+        <link rel="stylesheet" href="/app/collection.css">
+{% endblock %}
+
+{% block body %}
+{% include "swl/modal.j2" %}
+
+<nav class="swl-nav">
+    <div class="swl-container">
+        <span class="swl-brand"><i class="bi bi-vinyl"></i> Collection</span>
+        <div class="col-toolbar">
+            {% if user.admin %}
+            <button type="button" class="{{ SWL.ui.button }} {{ SWL.ui.small }}" hx-post="{{ register('users_show') }}">
+                <i class="bi bi-people"></i> Users
+            </button>
+            {% endif %}
+            <button type="button" class="{{ SWL.ui.button }} {{ SWL.ui.small }}" hx-post="{{ register('show_account') }}">
+                <i class="bi bi-person"></i> {{ user.username }}
+            </button>
+            <a role="button" class="{{ SWL.ui.button }} {{ SWL.ui.small }}" href="/logout">Log out</a>
+        </div>
+    </div>
+</nav>
+
+<main class="swl-container col-main">
+    <aside class="col-side">
+        {#
+         # Your collections. Rehydrated after a collection is saved or deleted; it posts
+         # #screen to know which one is chosen.
+         #}
+        {{ placeholder("collections", register('collections_list'), attrs={"hx-include": "#screen"}) }}
+        <button type="button" class="{{ SWL.ui.button }} {{ SWL.ui.small }} col-wide" hx-post="{{ register('collection_new') }}">
+            <i class="bi bi-plus-lg"></i> New collection
+        </button>
+    </aside>
+
+    <section>
+        {#
+         # What you are looking at. The search field and the sort are visible; the chosen
+         # collection, the facet values and the page are hidden fields (#screen-state), which
+         # items_list fills in with every answer. Typing posts it (after 250 ms of quiet).
+         #}
+        <form id="screen" class="col-search" onsubmit="return false">
+            <span id="screen-state" class="swl-hidden">{{ state_html }}</span>
+            <input type="search" name="q" value="{{ screen.q }}" class="{{ SWL.ui.input }}" autofocus
+                   placeholder="Do I have it? Title, artist, number, tag..." aria-label="Search">
+            <select name="sort" class="{{ SWL.ui.select }}" aria-label="Sort">
+                {% for value, label in sorts.items() %}
+                <option value="{{ value }}" {{ "selected" if value == screen.sort }}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="button" class="{{ SWL.ui.button_primary }}" hx-post="{{ register('item_new') }}" hx-include="#screen">
+                <i class="bi bi-plus-lg"></i> Add
+            </button>
+        </form>
+
+        <div class="col-results">
+            {{ placeholder("results", register('items_list'),
+                           trigger="input delay:250ms from:#screen",
+                           attrs={"hx-include": "#screen", "hx-sync": "this:queue last"}) }}
+            <div id="facets" class="col-facets"></div>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block body_extra %}
+<script type="module" id="swl-run" src="/static/swl/swl-run.js"></script>
+<script src="/app/collection.js"></script>
+{% endblock %}

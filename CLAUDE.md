@@ -33,6 +33,8 @@ in from a web form. GPLv2. Maintained by Seecr (Johan Jonkers, Thijs Janssen).
   (principles, rules, a complete view, why no library); `CHANGELOG.md` – keep it updated,
   with "Upgrading" notes for breaking changes
 - `examples/` – runnable scripts, explained step by step (`store.py`, `webadapter.py`)
+- `examples/collection/` – an example application (SWL + swindl): collections of records,
+  LEGO sets; its own pyproject and README. Generic names only, no customer projects.
 
 ## Commands
 
@@ -41,6 +43,7 @@ pytest swindl                                  # the tests (-n5: pytest-xdist)
 flake8 swindl examples tools && isort --check-only swindl examples tools
 PYTHONPATH=. python examples/store.py          # an example against this checkout
 PYTHONPATH=. python examples/webadapter.py
+pytest examples/collection/swindl_collection    # needs swl: pip install -e examples/collection
 PYTHONPATH=. python tools/crashtest.py --rounds 500   # before a release of the commit path
 ```
 

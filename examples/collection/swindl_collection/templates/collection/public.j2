@@ -1,0 +1,39 @@
+{#
+ # A public collection: a plain page with links (no actions, no login), to share.
+ #}
+{% extends "swl/base.j2" %}
+
+{% block head_extra %}
+        <script src="/static/swl/theme.js"></script>
+        <link rel="stylesheet" href="/app/collection.css">
+{% endblock %}
+
+{% block body %}
+<main class="swl-container col-public">
+    <h1>{{ collection.name }}</h1>
+    {% if collection.description %}<p>{{ collection.description }}</p>{% endif %}
+    <form method="get" class="col-search">
+        <input type="search" name="q" value="{{ q }}" class="{{ SWL.ui.input }}" placeholder="Search" aria-label="Search">
+        <button type="submit" class="{{ SWL.ui.button }}">Search</button>
+    </form>
+    <p class="swl-muted">{{ result.total }} {{ labels.item ~ ("" if result.total == 1 else "s") }}</p>
+    <table class="{{ SWL.ui.table }} col-table">
+        <tbody>
+        {% for item in result.objs %}
+            <tr>
+                <td><strong>{{ item.title }}</strong>
+                    <div class="swl-muted swl-small">{{ item.maker }}{% if item.year %} &middot; {{ item.year }}{% endif %}{% if item.format %} &middot; {{ item.format }}{% endif %}</div></td>
+                <td class="col-tags">{% for tag in item.tags %}<span class="col-tag">{{ tag }}</span>{% endfor %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% set pages = result.pages %}
+    <nav class="col-pages">
+        {% if pages.prev is not none %}<a href="?q={{ q|urlencode }}&page={{ pages.prev }}">Previous</a>{% endif %}
+        {% if pages.next is not none %}<a href="?q={{ q|urlencode }}&page={{ pages.next }}">Next</a>{% endif %}
+    </nav>
+</main>
+{% endblock %}
+
+{% block body_extra %}{% endblock %}

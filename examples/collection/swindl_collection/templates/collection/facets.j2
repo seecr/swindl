@@ -1,0 +1,28 @@
+{#
+ # Rendered by items_list into #facets: per facet the values in the results, with how many
+ # items have it (sil's drilldown, over all results, not only this page). A click adds the
+ # value as a filter.
+ #}
+{% set titles = {"collection": "Collection", "maker_exact": labels.maker, "decade": "Decade",
+                 "format": labels.format, "condition": "Condition", "tag": "Tags"} %}
+{% for field in ["collection", "maker_exact", "decade", "format", "condition", "tag"] %}
+{% set values = drilldown.get(field, []) %}
+{% if values and not (field == "collection" and screen.c) %}
+<div class="col-facet">
+    <h3>{{ titles[field] }}</h3>
+    <ul>
+    {% for value, count in values %}
+        {% set active = (field, value|string) in screen.f %}
+        <li>
+            <button type="button" class="swl-link {{ 'col-active' if active }}"
+                    hx-post="{{ register('items_list') }}" hx-include="#screen"
+                    hx-vals='{{ {("remove" if active else "add"): field ~ "=" ~ value}|tojson }}'>
+                {{ names.get(value, value) if field == "collection" else (value ~ "s" if field == "decade" else value) }}
+            </button>
+            <span class="swl-muted">{{ count }}</span>
+        </li>
+    {% endfor %}
+    </ul>
+</div>
+{% endif %}
+{% endfor %}
