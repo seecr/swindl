@@ -16,6 +16,7 @@ Crash-safe transactions over files and index. Needs sjdbl 0.4.0.
 ### Added
 
 - `Store.transaction()`. See "Transactions" in `doc/reference.md`.
+- `Store.commit()`: commit the indexes now (for `Commit(timeout=0)`).
 - Crash safety. The files have a transaction completely or not at all (sjdbl 0.4.0), and
   the index catches up: the qids of a transaction go to `index/pending.log` before the
   files are committed and leave it after the index has committed them; when the store is

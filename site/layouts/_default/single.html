@@ -1,0 +1,10 @@
+{{ define "main" }}
+<article class="doc">
+  <p class="doc-meta">
+    {{ with .Params.version }}{{ $.Params.library }} {{ . }} · {{ end }}
+    {{ with .Params.pdf }}<a href="{{ . | relURL }}" download>download as pdf</a> · {{ end }}
+    {{ with .Params.source }}<a href="{{ . }}">source on github</a>{{ end }}
+  </p>
+  {{ .Content }}
+</article>
+{{ end }}

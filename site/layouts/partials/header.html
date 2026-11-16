@@ -1,0 +1,9 @@
+<header class="site-header">
+  <a class="logo" href="{{ site.Home.RelPermalink }}"><span class="brace">[</span> swindl <span class="brace">]</span></a>
+  <span class="tagline">{{ site.Params.tagline }}</span>
+  <nav>
+    {{ range site.Menus.main }}
+      <a href="{{ .URL | relURL }}">{{ .Name }}</a>
+    {{ end }}
+  </nav>
+</header>

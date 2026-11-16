@@ -222,7 +222,7 @@ def test_a_delete_is_searchable_at_once_also_with_the_timer(tmp_path):
     store = Store(tmp_path, [Person], commit=Commit(timeout=0))
     person = store.create(Person, values={"name": "p"})
     assert list(store.list(Person)) == []  # not committed: no timer
-    store._indexes.commit()
+    store.commit()
     assert len(list(store.list(Person))) == 1
     store.delete(person)
     assert list(store.query(QueryParams(Person)).objs) == []

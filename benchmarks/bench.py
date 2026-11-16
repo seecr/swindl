@@ -453,7 +453,7 @@ def run(size, workdir, runs):
                 lambda: side.update(rng.choice(sample), f"changed {next(counter)}"),
                 runs,
             )
-            side.store._indexes.commit()
+            side.store.commit()
             side.store._indexes._immediate = True
 
         out["queries"] = {}

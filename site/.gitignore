@@ -1,0 +1,13 @@
+public/
+resources/
+.hugo_build.lock
+content/reference.md
+content/sjdbl.md
+content/sil.md
+content/guarantees.md
+content/webadapter.md
+content/benchmarks.md
+content/example.md
+static/*-reference.pdf
+pdf/*.out.typ
+benchmarks.tmp.md

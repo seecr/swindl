@@ -45,7 +45,7 @@ store.disconnect()                                     # at shutdown: closes the
 |---|---|
 | `Commit()` (default) | within 5 seconds (`Commit(timeout=...)`); many puts share a commit. Needs a running event loop when the store is made (the timer is an asyncio task) |
 | `Commit(immediate=True)` | at the end of every put, delete or transaction: searchable at once; for tests, scripts and examples |
-| `Commit(timeout=0)` | only at `disconnect()` (or `store._indexes.commit()`); for bulk imports |
+| `Commit(timeout=0)` | only at `store.commit()` and `disconnect()`; for bulk imports |
 
 A `get` always reads the files, so it sees a change at once either way; only queries wait for
 the commit. A delete is committed at once (at the end of its transaction).
@@ -120,6 +120,7 @@ store.delete(book)                             # gone, from files and index
 | `delete(obj)` | removes it from the files and the index; `obj` may also be a reference to one (a `Proxy`, as references and collections give; nothing is loaded) or its qid |
 | `enumerator(...)` | sjdbl's `Enumerator`, for sequential numbers |
 | `transaction()` | a block whose puts and deletes are stored together, or not at all; see [Transactions](#transactions) |
+| `commit()` | commits the indexes now (only needed with `Commit(timeout=0)`) |
 | `disconnect()` | commits and closes the indexes |
 
 **qid and qrid.** `obj.qid` is `"Book:<id>"`; `obj.qrid` adds the revision,

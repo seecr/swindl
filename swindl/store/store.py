@@ -144,6 +144,11 @@ class Store(object):
     def disconnect(self):
         self._indexes.shutdown()
 
+    def commit(self):
+        """Commits the indexes now: what was stored becomes searchable. Needed only with
+        Commit(timeout=0); the other modes commit by themselves."""
+        self._indexes.commit()
+
     def create(self, cls, values=None):
         if isinstance(cls, str):
             cls = self._models.get(cls)

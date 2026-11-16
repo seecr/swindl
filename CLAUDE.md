@@ -18,6 +18,8 @@ in from a web form. GPLv2. Maintained by Seecr (Johan Jonkers, Thijs Janssen).
   (query text plus exact terms)
 - `swindl/check.py` – `swindl-check`: index vs files, crash leftovers, dangling
   references. Only reads (no Store, no recovery); keep it that way.
+- `site/` – the website of swindl, sjdbl and sil (Hugo; pages and PDFs made from the
+  docs of the three repositories, see `site/README.md`)
 - `benchmarks/bench.py` – swindl against SQLite + FTS5 on the same data; results in
   `benchmarks/RESULTS.md` (not in the package)
 - `tools/crashtest.py` – SIGKILLs a process running transactions, hundreds of times;

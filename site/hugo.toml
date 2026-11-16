@@ -1,0 +1,56 @@
+baseURL = "https://swindl.seecr.nl/"
+languageCode = "en"
+title = "swindl"
+disableKinds = ["taxonomy", "term", "RSS", "sitemap"]
+
+[params]
+tagline = "crash-safe storage and fast search for python web apps"
+github = "https://github.com/seecr/swindl"
+sjdbl = "https://github.com/seecr/sjdbl"
+sil = "https://github.com/seecr/sil"
+swl = "https://swl.seecr.nl/"
+changelog = "https://github.com/seecr/swindl/blob/main/CHANGELOG.md"
+seecr = "https://seecr.nl"
+
+[menus]
+[[menus.main]]
+name = "docs"
+url = "/#docs"
+weight = 10
+[[menus.main]]
+name = "swindl"
+pageRef = "/reference"
+weight = 20
+[[menus.main]]
+name = "sjdbl"
+pageRef = "/sjdbl"
+weight = 30
+[[menus.main]]
+name = "sil"
+pageRef = "/sil"
+weight = 40
+[[menus.main]]
+name = "guarantees"
+pageRef = "/guarantees"
+weight = 50
+[[menus.main]]
+name = "benchmarks"
+pageRef = "/benchmarks"
+weight = 60
+[[menus.main]]
+name = "example"
+pageRef = "/example"
+weight = 70
+[[menus.main]]
+name = "github"
+url = "https://github.com/seecr/swindl"
+weight = 80
+
+[markup]
+[markup.highlight]
+noClasses = false
+[markup.goldmark.renderer]
+unsafe = true
+[markup.tableOfContents]
+startLevel = 2
+endLevel = 2

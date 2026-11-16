@@ -61,7 +61,7 @@ def run_child(tmp_path, crash_at, commit="Commit(immediate=True)"):
                       commit={commit})
         a, b, c = (Item.create(name=n) for n in "abc")
         store.put(a, b, c)
-        store._indexes.commit()
+        store.commit()
 
         target = importlib.import_module({module_name!r})
         cls_name, _, name = {attribute!r}.rpartition(".")
