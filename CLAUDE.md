@@ -38,9 +38,11 @@ against a local sjdbl checkout: `pip install -e ../sjdbl`.
 
 ## Design decisions (deliberate, don't re-propose)
 
-- Explicit over implicit, KISS. No automatic or self-healing mechanisms: no reindex at
-  startup, no adaptations derived from `FIELDS`. A reindex is an explicit step of the
-  application (`store.reindex(models)`), announced in its CHANGELOG.
+- Explicit over implicit, KISS. No reindex in application code because a model changed:
+  a reindex is an explicit step (announced in the CHANGELOG, done via `actions/reindex`,
+  i.e. `store.reindex(models)`), and swindl only reports that one is needed
+  (`needs_reindex`). Finishing an interrupted commit from the commit log at startup is
+  part of a transaction, not a reindex. No adaptations derived from `FIELDS`.
 - Fields define the model; the WebAdapter guards the boundary. No web or check knowledge
   in sjdbl's `Field`, no conversions derived from `Field`s. `update`/`create` trust their
   input; checking is the WebAdapter's.

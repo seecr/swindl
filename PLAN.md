@@ -1,173 +1,199 @@
-# Plan: WebAdapter 2 (swindl 2.0.0, sjdbl 0.3.0)
+# Plan: crash-safe transactions over store and index (sjdbl 0.4.0, swindl 2.2.1 and 3.0.0)
 
-Agreed design for rewriting `swindl/webadapter.py`, plus the model changes it needs in
-sjdbl and swindl. `doc/webadapter.md` holds the earlier notes (what goes wrong now); this
-plan replaces its "What it needs" section.
+Agreed in November 2026. This replaces the WebAdapter 2 plan (done in swindl 2.0.0; see
+git history). The store (sjdbl's files) is the source of truth; the index is derived
+from it and can always be redone from the files. So a transaction needs no two-phase
+commit: the files are committed atomically with a small redo log, and the index changes
+are recorded before that commit and done after it. A crash in between is finished at
+startup from the log. That is part of the transaction, not a reindex (see CLAUDE.md).
 
 ## Before starting
 
-- In both `swindl` and `sjdbl`: check for uncommitted changes and unpushed commits, then
+- In `swindl` and `sjdbl`: check for uncommitted changes and unpushed commits, then
   `git pull`. If anything is off, stop and ask.
-- Work on a branch `webadapter-2` in swindl and `model-checks` in sjdbl.
-- Commit messages start with `JJ: `. Run `flake8` and `pytest` before any push.
+- Commit messages start with `JJ: `. flake8, isort and the tests must pass before any
+  push (the pre-push hook does this).
+- Don't tag or push unless asked.
 
-## Principles
+## What it fixes
 
-- **Fields define the model; the WebAdapter guards the boundary.** `Field`s (sjdbl) say how
-  a value is stored. The WebAdapter (swindl) converts and checks what comes in from a web
-  form. The two stay separate: no web or check knowledge in `Field`, and no conversions
-  derived from `Field`s.
-- **`update` and `create` trust their input.** `Base.update` does no checks; an invalid
-  value there is a programmer error. Checking happens in the WebAdapter.
-- **Forms only.** The WebAdapter handles form input and the values for form inputs. Showing
-  values (dates in a list, state names) is done by template filters, not by the WebAdapter.
-- **Simple data.** Results and errors are plain dicts.
+1. Two threads saving the same object: swindl's `put` writes the file and then indexes
+   without a lock around both, so the older values can reach the index last. The
+   `Indexes._indexed` cache has no lock either (a `KeyError` is possible when plain
+   `def` endpoints save from Starlette's thread pool).
+2. A crash between the file delete and the index delete leaves a dangling id in the
+   index; `query()` then returns `None` among its objects.
+3. `put(a, b)` is not atomic across files: a crash between two renames leaves half the
+   change.
+4. `sjdbl.Store.batch()` uses `os.sync()`, which syncs every file system on the machine,
+   not just the store.
+5. A failing `swindl.Store.batch()` still has its puts in the files and the index; there
+   is no way to say "all of this, or nothing".
 
-## 1. sjdbl: Base checks its fields (release 0.3.0)
+## 1. swindl 2.2.1: a lock and no `None` in results (fixes 1 and 2)
 
-- Remove `INDEX = []` from `sjdbl.base.Base`: sjdbl never uses it; it moves to swindl.
-- Add `__init_subclass__` to `Base` that raises at class definition when:
-  - two fields in `FIELDS` have the same name;
-  - a field name clashes with an attribute of `Base` (`id`, `qid`, `qrid`, `type_name`,
-    `update`, `delete`, `archive`, `deletable`, `mark_archived`, `create`, `is_archived`,
-    `index_values`, `to_storage`, `from_storage`, ... take them from `dir(Base)`) or with a
-    `META` name. Such a field is silently hidden today, because attribute access goes
-    through `__getattr__`, which only runs when normal lookup fails.
-- Do NOT merge inherited `FIELDS` automatically: models write `Base.FIELDS + [...]` (or
-  `Parent.FIELDS + [...]`), and merging would then count fields twice.
-- Tests in `base_test.py` for each check. Update `CHANGELOG.md` and `README.md`.
-- A search of the existing apps found no clashing field names, so this breaks nothing.
+- `swindl.Store` gets one `threading.RLock`. `put()` and `delete()` hold it around the
+  sjdbl write and the index change, so file and index change in the same order.
+  `reindex()` holds it too. `Indexes.add_record`/`delete_record` (and the `_indexed`
+  cache) are only called with it held; say so in a comment.
+- `query()` and `find_by_field()` skip hits whose file is gone (deleted between the
+  search and the read, or a dangling id after a crash). `total` stays the index count;
+  note that in the reference.
+- Tests: several threads (`concurrent.futures.ThreadPoolExecutor`) saving and changing
+  the same objects at once; afterwards the index has the values of the files and there is
+  no exception. A test with an id in the index but no file: `query()` returns no `None`.
+- CHANGELOG: 2.2.1, "Fixed".
 
-## 2. swindl: its own Base
+## 2. sjdbl 0.4.0: `Store.transaction()` with a commit log (fixes 3 and 4)
 
-- `swindl/store/__init__.py` exports `Base` from sjdbl today. Replace that with a swindl
-  `Base(sjdbl.base.Base)` with `INDEX = []` and `ADAPTATIONS = []`, so apps keep importing
-  `from swindl.store import Base`.
-- Its `__init_subclass__` checks that every `Adapt` in `ADAPTATIONS` names a field in
-  `FIELDS` (a typo like `Adapt.date("dbo")` is silently ignored today) and that no name is
-  adapted twice.
-- `Indexes.__init__` and `Store.reindex` use `hasattr(model, "INDEX")`. Since sjdbl's Base
-  had `INDEX = []`, that was always true; keep the behaviour the same (models of swindl's
-  Base have `INDEX`), do not change which models get an index in this release.
-- Raise the sjdbl requirement in `pyproject.toml` to `>= 0.3.0, < 1`.
+### The commit
 
-## 3. swindl: the new WebAdapter
+All writes of a store go through one method `_commit(writes, deletes)` (`writes`:
+qid -> serialized JSON; `deletes`: qids), with the store's lock held:
 
-Rewrite `swindl/webadapter.py`. Everything in the current module goes, including the
-wrapper `WebAdapter(obj)` with `__getattr__` and `original()`, `as_is`,
-`from_web_method`, `to_web_method` and `Adapt.method`.
+1. Write every `writes` entry to its temp file (`<uuid>.tmp` in the class directory),
+   then `fsync` each temp file (first all writes, then all fsyncs: the kernel can write
+   them out together).
+2. Write the commit log `<store>/commit.log`: JSON `{"write": [qids], "delete": [qids]}`,
+   via a temp file, `fsync`, rename, `fsync` of the store directory. **This is the commit
+   point.**
+3. Rename each temp file into place; unlink each deleted file (`missing_ok`). `fsync`
+   each changed class directory once.
+4. Remove `commit.log` and `fsync` the store directory.
 
-### Declaring, in the model
+Only after a successful commit do objects get their new `__rev__`; on an error before the
+commit point they keep (get back) their old one and the temp files are removed.
 
-```python
-ADAPTATIONS = [
-    Adapt.date("dob"),
-    Adapt.int("age", checks=[at_least(0)]),
-    Adapt.str("name", checks=[max_length(100)]),
-    Adapt.decimal("amount", decimals=2),
-    Adapt.bool("active"),
-    Adapt.custom("state", from_web=..., to_web=...),
-]
-```
+A single `put(obj)` without a transaction writes one file, which a rename already makes
+atomic: it may skip the log (steps 1 and 3 only), as today. Anything with more than one
+file, or a delete together with writes, uses the log.
 
-- Every non-text field used in a form is declared; an undeclared field is text
-  (`Adapt.str` without checks).
-- `Adapt`: a name, `convert(text) -> value`, `to_web(value) -> text`, `checks`, and
-  whether it is a checkbox. Constructors: `str`, `int`, `decimal`, `date`, `bool`,
-  `custom`. Each takes optional `from_web`/`to_web` to override the conversion.
-- `Adapt.custom(name, from_web, to_web, checks=None)`: `from_web(obj, form)` gets the
-  object (None when creating) and the whole form, and returns the value;
-  `to_web(obj, value)` returns the text. This is the hook for anything the standard
-  types do not cover (other fields, multi-selects via `form.getlist`, references).
-- Checks: `at_least(n)`, `at_most(n)`, `max_length(n)`, `one_of(values)`. A check takes the
-  converted value and raises `FieldError(code, **params)` (e.g. `too_long`,
-  `{"max": 100}`). Checks only run on values that are not None.
+### Recovery, in `Store.__init__`
 
-### Rules, per field, in this order
+- If `commit.log` exists: for every qid in `write` whose temp file exists, rename it into
+  place; unlink every qid in `delete`; `fsync` the directories; remove the log. Log at
+  WARNING which qids were finished.
+- Then remove stray `*.tmp` files in the class directories (a transaction that never
+  reached its commit point).
 
-1. Not in `fields`: never touched (not in the result).
-2. Not sent (not in the form): left alone (not in the result). Exception: a checkbox
-   (`Adapt.bool`) that is in `fields` but not sent is `False`, because an unchecked box is
-   not sent.
-3. Sent: strip whitespace. Empty becomes `None`, except `str`, which keeps `""`.
-4. Otherwise convert; a conversion error becomes `FieldError("invalid_<type>")`
-   (`invalid_int`, `invalid_decimal`, `invalid_date`). Then run the checks.
-5. `Adapt.custom` gets the form itself and decides; its result is used as is (None
-   included). It can raise `FieldError` too.
+### `Store.transaction()`
 
-### Functions
+Replaces `batch()` (one clean switch, no alias). Behaves as `batch()` does now (puts are
+checked and serialized at `put()`, written at the end; `get()` sees them, `list()` does
+not; nesting: the outermost commits; an exception discards everything and restores the
+revisions), plus:
 
-Module-level functions in `swindl.webadapter`, no state:
+- `delete()` inside a transaction is buffered as well and committed with the rest.
+- At the end everything goes through `_commit` (no `os.sync()`).
 
-- `from_form(model, form, fields, obj=None, adaptations=None) -> dict`
-  - `model` is the class (its `ADAPTATIONS` are used); `adaptations` adds or overrides
-    per form; `obj` is passed to `Adapt.custom`.
-  - Returns the values for `obj.update(**values)` or `Model.create(store, **values)`.
-  - Collects the errors of all fields and raises `FormErrors` with
-    `errors = {name: FieldError}`. Nothing is returned partially.
-- `to_form(obj, fields, form=None, adaptations=None) -> dict`
-  - The values for form inputs, as text: `None` becomes `""`, a date `2026-11-03`, a
-    decimal with its decimals. A checkbox gives a bool (for `checked`).
-  - With `form=` (re-showing a form after errors) it gives what was typed instead of the
-    stored value; a checkbox then is `name in form`.
-- `FieldError(code, **params)` with `.code` and `.params`; `FormErrors(errors)` with
-  `.errors`. Messages are translated by the app (e.g. `swl.i18n`):
-  `{{ _(errors.dob.code, **errors.dob.params) }}`.
+### Also in 0.4.0
 
-Typical view:
+- Remember the revision of every qid read or written (`dict` qid -> rev, filled by
+  `get()`, `list()` and the commit; dropped on delete). `_stored_rev` uses it and only
+  reads the file for a qid it has not seen. sjdbl is single process, so the dict is the
+  truth once filled. (Measure a put before and after; drop this if it gains nothing.)
+- Tests for crash safety: make `_commit` raise right after step 1, after step 2 and
+  halfway through step 3 (monkeypatch `Path.replace` to raise on the second call), then
+  open a new `Store` on the same directory and check: before the commit point nothing
+  changed, after it everything did; no `.tmp` files are left.
+- CHANGELOG with "Upgrading": `batch()` becomes `transaction()`. CLAUDE.md: update
+  "Invariants to keep" (the commit log, recovery, no `os.sync`). README: transactions.
 
-```python
-fields = ["name", "dob", "country"]
-try:
-    person.update(**from_form(Person, form, fields, obj=person))
-except FormErrors as e:
-    return render("person_form", values=to_form(person, fields, form=form), errors=e.errors)
-```
+## 3. swindl 3.0.0: `Store.transaction()` over files and index (fixes 5)
 
-`form` is anything with `get`, `__contains__` (and `getlist` for custom multi-selects),
-such as Starlette's `FormData` or a dict.
+### Index changes are recorded before the file commit
 
-### Tests
+`<data>/index/pending.log`: the qids whose index entry may not match the files. Written
+(temp file, `fsync`, rename) **before** sjdbl commits, removed after the index committed
+those changes. Listing a qid too many is harmless: redoing it from the file gives the same
+entry.
 
-Rewrite `swindl/webadapter_test.py` around the rules. At least the cases from the table
-in `doc/webadapter.md`:
+`swindl.Store.transaction()`, with swindl's lock held for the whole block:
 
-- only some fields sent: the others are not in the result (no `'None'` text, no `False`
-  for a checkbox that is not in `fields`);
-- empty date and empty number become `None` (can be cleared);
-- missing number is left alone, empty number is `None` (no `TypeError`/`ValueError`);
-- wrong values give `FieldError` per field, all collected in one `FormErrors`;
-- checks (`at_least`, `at_most`, `max_length`, `one_of`) with their codes and params;
-- checkbox in `fields` but not sent is `False`;
-- `Adapt.custom` gets obj and form; works with `obj=None`;
-- per-form `adaptations` override the model's;
-- `to_form`: `None` is `""`, dates, decimals, checkbox bool, and with `form=` the typed
-  values;
-- swindl Base: an `Adapt` for a field that does not exist raises at class definition.
+- `put()` and `delete()` are buffered: in sjdbl's transaction for the files, and in a
+  dict qid -> object or "delete" for the index.
+- At the end of the outermost block:
+  1. add the qids to `pending.log`;
+  2. let sjdbl's transaction commit (the files);
+  3. apply the index changes (`add_record`, `delete_record`), and commit the changed
+     indexes;
+  4. take the qids out of `pending.log` (remove the file when it is empty).
+- An exception before 2: sjdbl discards the files, the index changes are dropped, the
+  qids are taken out of `pending.log` again. Nothing changed.
+- Within the block `get()` sees its puts (sjdbl), `query()` and `list()` don't (the
+  index), as with `batch()` now.
 
-## 4. Documentation
+A `put()` or `delete()` outside a transaction is a transaction of one.
 
-- Rewrite `doc/webadapter.md` from notes into documentation: purpose, principles, declaring,
-  the rules, `from_form`/`to_form`, errors and translation, a full view example, and
-  showing values with template filters instead of the old wrapper. Use generic names in
-  examples (`Person`, `Order`), no names of the projects it is used in.
-- Add `CHANGELOG.md` to swindl (it has none yet) with 2.0.0, including an
-  "Upgrading from 1.x" section:
-  - `WebAdapter.adapt(obj, form, fields)` -> `from_form(type(obj), form, fields, obj=obj)`;
-  - `WebAdapter(obj)` wrapper is gone: use `to_form` for form inputs and template filters
-    for showing values;
-  - `Adapt.method(name, from_web, to_web)` -> `Adapt.custom` (now gets obj and form);
-  - not sent is left alone, empty is `None`, bad values raise `FormErrors`: views that save
-    a form should catch `FormErrors` and show the form again with `to_form(..., form=form)`;
-  - a workaround that only passes the fields that were sent is no longer needed;
-  - `Adapt` names that do not match a field, and field names that clash with `Base`,
-    now raise at import.
-- Add a short `README.md` if the build needs it (`pyproject.toml` refers to it).
+### When the index commits
 
-## 5. Release
+The apps use both modes: `Commit(immediate=True)` (tests, imports) and
+`Commit(immediate=False)` with sil's auto-commit (enigma, hbokb, wwft-admin servers).
 
-- sjdbl 0.3.0, then swindl 2.0.0 (breaking: WebAdapter API). Tag as `x.y.z`.
-- Apps pin `swindl >= 1.x, < 2` and keep working on 1.x until they upgrade; no maintenance
-  branch for 1.x unless an urgent fix is needed.
-- Apps to convert later (not part of this plan): those using `swindl.webadapter`; an app
-  that pins swindl without an upper bound should get `< 2` first.
+- Immediate: step 3 commits at once, step 4 follows.
+- Auto-commit: the qids stay in `pending.log` until the next commit. To know when that
+  is, swindl does the auto-commit itself instead of sil: the sil `Index`es are made
+  without their own commit task (`commit_timeout=0`), and `Indexes` runs one task that
+  commits every changed index and then clears `pending.log`. The interval stays
+  `Commit.timeout`. (sil itself does not change.)
+- `Commit(timeout=0)` (no commit until shutdown, used by an isms script) keeps working:
+  `shutdown()` commits and clears `pending.log`.
+
+### Recovery, in `swindl.Store.__init__`
+
+After sjdbl's recovery (which `JsonStore(...)` does) and opening the indexes: if
+`pending.log` exists, for each qid `get` it from the files and `add_record` it, or
+`delete_record` it when the file is gone; commit; remove the log. Log at WARNING how many
+were redone. Nothing else is reindexed: a changed model still only reports
+`needs_reindex`.
+
+### Also in 3.0.0
+
+- `batch()` is removed; `transaction()` replaces it. enigma is the only app that uses
+  `batch()` (`store.py`, `chat.py`, `news.py`, `notifications.py`): it moves to
+  `transaction()` when it upgrades. Note in "Upgrading" that a failing block now writes
+  nothing (with `batch()` the files kept the puts).
+- Tests: the same crash points as in sjdbl, plus a crash after the file commit and before
+  the index commit; a new `Store` on the same directory has the index matching the files.
+  An exception in a transaction leaves files and index unchanged. Both commit modes.
+- `doc/reference.md`: "Storing" gets transactions; a short "After a crash" section (what
+  is finished at startup and what is logged).
+- CHANGELOG 3.0.0 with "Upgrading"; requires `sjdbl >= 0.4.0, < 1`. CLAUDE.md: invariants
+  (store first, index after; `pending.log` written before the file commit, cleared after
+  the index commit; swindl's lock around every change).
+
+## 4. Proving it: crash test, check tool, guarantees
+
+"Crash safe" is a claim; these make it one we can back up.
+
+- **Crash test script** (`tools/crashtest.py` in swindl, not part of the package): a child
+  process runs transactions in a loop (puts, deletes, several objects per transaction,
+  both commit modes); the parent kills it with `SIGKILL` at a random moment, opens the
+  store, and checks: every transaction is in the files completely or not at all, the
+  index matches the files, no `.tmp` files. A few thousand rounds before a release of
+  sjdbl or swindl that touches the commit path. (The unit tests raise at chosen points;
+  this kills at any point.)
+- **`swindl-check <data dir> <models module>`**: reports, never repairs:
+  - ids in the index without a file, files without an index entry, index values that
+    differ from the file;
+  - stray `.tmp` files, a leftover `commit.log` or `pending.log` (the app was not
+    started since a crash);
+  - files that are not valid JSON, references to objects that don't exist.
+  Exit code 0 when all is well. The repair stays `actions/reindex` (and a person for
+  the files).
+- **`doc/guarantees.md`** (swindl, linked from sjdbl's README): what is promised
+  (atomic transactions, durable on Linux after the transaction ends, lost updates
+  prevented by revisions, the index catches up after a crash) and what not (readers can
+  see part of a transaction while it commits; only written objects are revision-checked;
+  no unique or reference constraints; macOS `fsync` does not flush the drive cache), the
+  limits (one process: no `uvicorn --workers`; `list()` and `reindex()` read every file),
+  and how to back up (a filesystem snapshot, or a copy while holding the store's lock; a
+  copy taken during a commit is finished when it is opened).
+
+## Not in this plan (deliberately)
+
+- Isolation for readers: `get()` and `query()` take no lock, so during step 3 of a commit
+  a reader can see part of a transaction. Fine for our apps; a luxury problem.
+- Security items from the review, separately: a "user query" mode in sil (no field syntax
+  or raw regexes from a search box, or an allow-list of fields), and creating the store
+  directory with mode `0o700`.
