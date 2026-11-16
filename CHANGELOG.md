@@ -37,6 +37,11 @@ Crash-safe transactions over files and index. Needs sjdbl 0.4.0.
 - Within a transaction other threads no longer see its changes through `get()` before
   the block ends.
 
+### Changed
+
+- The wheel only has the package itself (`swindl/`); it used to install `doc/`, `examples/` and
+  other directories of the repository into site-packages too.
+
 ## 2.2.1 (2026-11-16)
 
 ### Fixed

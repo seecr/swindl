@@ -37,6 +37,7 @@ version_file = "swindl/_version.py"
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["swindl*"]
 
 [tool.setuptools]
 include-package-data = true
