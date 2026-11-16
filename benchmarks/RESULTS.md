@@ -20,6 +20,7 @@ Measured 2026-11-16 on arm, 10 CPUs, macOS-26.6.2-arm64-arm-64bit-Mach-O; Python
 |---|---:|---:|---:|---:|
 | change one object, searchable at once (ms) | 83 | **4.00** | 4.00 | 25 |
 | change one object, index on the timer (ms) | **0.74** | - | - | - |
+| change one object, index committed by the next search (ms) | - | - | - | - |
 | load, transactions of 1,000 (objects/s) | 4,548 | **41,348** | 19,761 | 22,864 |
 | rebuild the search index (s) | 0.46 | **0.01** | 0.02 | - |
 | on disk (MB) | 8 | **4** | 6 | 24 |
@@ -43,6 +44,7 @@ Measured 2026-11-16 on arm, 10 CPUs, macOS-26.6.2-arm64-arm-64bit-Mach-O; Python
 |---|---:|---:|---:|---:|
 | change one object, searchable at once (ms) | 88 | **3.56** | 3.95 | 25 |
 | change one object, index on the timer (ms) | **0.88** | - | - | - |
+| change one object, index committed by the next search (ms) | - | - | - | - |
 | load, transactions of 1,000 (objects/s) | 3,603 | 14,983 | **23,270** | 18,032 |
 | rebuild the search index (s) | 12.29 | **0.11** | **0.11** | - |
 | on disk (MB) | 72 | **44** | 57 | 169 |
