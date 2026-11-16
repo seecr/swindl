@@ -30,6 +30,7 @@ dynamic = ["version"]
 
 [project.scripts]
 swindl-load-sdbl-dump = "swindl.store.dump:main"
+swindl-check = "swindl.check:main"
 
 [tool.setuptools_scm]
 version_file = "swindl/_version.py"

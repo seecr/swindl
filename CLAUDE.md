@@ -16,6 +16,11 @@ in from a web form. GPLv2. Maintained by Seecr (Johan Jonkers, Thijs Janssen).
 - `swindl/store/indexes.py` – `Indexes` (one sil `Index` per model with an `INDEX`; does
   the commits itself), `Commit` (when changes become searchable), `PendingLog`, `Query`
   (query text plus exact terms)
+- `swindl/check.py` – `swindl-check`: index vs files, crash leftovers, dangling
+  references. Only reads (no Store, no recovery); keep it that way.
+- `tools/crashtest.py` – SIGKILLs a process running transactions, hundreds of times;
+  run before a release that touches the commit path (not in the package)
+- `doc/guarantees.md` – what is promised and what not; keep it in step with the code
 - `swindl/store/crash_test.py` – real crashes (a child process that `os._exit`s) at each
   step of a transaction
 - `swindl/webadapter.py` – `from_form`, `to_form`, `Adapt`, the checks (`at_least`,
@@ -31,9 +36,10 @@ in from a web form. GPLv2. Maintained by Seecr (Johan Jonkers, Thijs Janssen).
 
 ```sh
 pytest swindl                                  # the tests (-n5: pytest-xdist)
-flake8 swindl examples && isort --check-only swindl examples
+flake8 swindl examples tools && isort --check-only swindl examples tools
 PYTHONPATH=. python examples/store.py          # an example against this checkout
 PYTHONPATH=. python examples/webadapter.py
+PYTHONPATH=. python tools/crashtest.py --rounds 500   # before a release of the commit path
 ```
 
 `env/` is the virtualenv (see the seecr-python rebuild-venv skill), with

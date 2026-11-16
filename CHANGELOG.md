@@ -20,6 +20,11 @@ Crash-safe transactions over files and index. Needs sjdbl 0.4.0.
   the index catches up: the qids of a transaction go to `index/pending.log` before the
   files are committed and leave it after the index has committed them; when the store is
   opened, what is still in it is indexed again from the files. See "After a crash".
+- `swindl-check <data dir> <models>`: reports whether the index matches the files
+  (and leftovers of a crash, unreadable files, dangling references). Changes nothing.
+- `doc/guarantees.md`: what swindl promises, what not, the limits, backups.
+- `tools/crashtest.py`: kills a process running transactions at random moments, many
+  times, and checks after each kill.
 - `Store.reindex()` commits once at the end (it used to commit after every object with
   `Commit(immediate=True)`).
 

@@ -19,6 +19,7 @@ PYTHONPATH=. python examples/webadapter.py   # forms: converting, checking, erro
 - [After a crash](#after-a-crash)
 - [Searching](#searching)
 - [Reindexing](#reindexing)
+- [Checking: swindl-check](#checking-swindl-check)
 - [Forms: the WebAdapter](#forms-the-webadapter)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
@@ -180,8 +181,8 @@ things when the process (or the machine) dies:
    the changes of the last seconds before a crash that were not committed yet.
 
 Both are logged as a warning and need nothing from the application. This is not a reindex:
-only what the crash left unfinished is done. See `doc/guarantees.md` for what is promised,
-and what is not.
+only what the crash left unfinished is done. `swindl-check` shows beforehand what opening
+will do. See `doc/guarantees.md` for what is promised, and what is not.
 
 ## Searching
 
@@ -250,6 +251,25 @@ only then. swindl never does it by itself, and application code doesn't either: 
 application offers it as an explicit step, e.g. a file `<data>/actions/reindex` that the
 server checks at startup, and the CHANGELOG of the release says when to do it. When a
 model's index fields changed, sil starts that index empty and logs that it needs a reindex.
+
+## Checking: swindl-check
+
+```sh
+swindl-check <data dir> <module>:<list of models>     # or <module>: all models in it
+swindl-check /data/myapp myapp.models:ALL_MODELS
+```
+
+Reports, one per line, whether the index matches the files, and changes nothing (it does
+not even open a `Store`, so it can run next to the application):
+
+- leftovers of a crash: `store/commit.log`, `.tmp` files, objects in `index/pending.log`
+  (opening the store finishes them);
+- objects indexed without a file, files that are not indexed, objects indexed twice;
+- index values that differ from the file (for `untokenized` and `int` index fields);
+- files that are not valid JSON, references to objects that don't exist.
+
+Exit code 0 and `ok` when all is well, 1 otherwise. In code: `swindl.check.check(data_dir,
+models)` gives the list.
 
 ## Forms: the WebAdapter
 
