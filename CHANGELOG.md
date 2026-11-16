@@ -2,12 +2,17 @@
 
 ## 3.0.0 (2026-11-16)
 
-Crash-safe transactions over files and index. Needs sjdbl 0.4.0.
+Crash-safe transactions over files and index. Needs sjdbl 0.4.0 and sil 3.2.0.
+
+**Reindex after upgrading** when a model has a `sortable=True` text or untokenized index
+field: sil 3.2.0 sorts those faster, with two extra columns, which changes the index
+schema. Such an index is recreated empty; rebuild it with `store.reindex(models)` (the
+`actions/reindex` file at startup).
 
 ### License
 
 - swindl is now MIT licensed (was GPLv2), like SWL. So are sjdbl (0.4.0) and sil
-  (3.1.1).
+  (3.2.0).
 
 ### Breaking changes
 
