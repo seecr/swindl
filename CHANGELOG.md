@@ -4,10 +4,11 @@
 
 Crash-safe transactions over files and index. Needs sjdbl 0.4.0 and sil 3.2.0.
 
-**Reindex after upgrading** when a model has a `sortable=True` text or untokenized index
-field: sil 3.2.0 sorts those faster, with two extra columns, which changes the index
-schema. Such an index is recreated empty; rebuild it with `store.reindex(models)` (the
-`actions/reindex` file at startup).
+**Reindex after upgrading** (`store.reindex(models)`, e.g. the `actions/reindex` file at
+startup). sil 3.2.0 fixes a bug that could leave an old version of an updated object in
+the index next to the new one (it then shows twice in a list); the reindex removes those.
+And an index with a `sortable=True` text or untokenized field changes schema (faster
+sorting) and starts empty until it is reindexed.
 
 ### License
 
