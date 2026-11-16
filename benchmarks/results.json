@@ -6,7 +6,8 @@
     "sqlite": "3.53.1",
     "swindl": "2.2.1.dev8+ga2c6de441.d20261116",
     "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
-    "tantivy": "0.27.0"
+    "tantivy": "0.27.0",
+    "postgres": "16.15"
   },
   "date": "2026-11-16",
   "runs": [
@@ -15,126 +16,187 @@
       "swindl": {
         "load": {
           "seconds": 4.03,
-          "per_second": 2480
+          "per_second": 2478
         },
         "get": {
           "median_ms": 0.016,
-          "p95_ms": 0.047
+          "p95_ms": 0.023
         },
         "update": {
-          "median_ms": 19.551,
-          "p95_ms": 31.906
+          "median_ms": 19.797,
+          "p95_ms": 35.16
         },
         "update_timer": {
-          "median_ms": 1.561,
-          "p95_ms": 2.783
+          "median_ms": 1.394,
+          "p95_ms": 2.012
         },
         "queries": {
           "text: a common word": {
-            "median_ms": 1.017,
-            "p95_ms": 1.419,
+            "median_ms": 1.162,
+            "p95_ms": 1.305,
             "hits": 5524
           },
           "text: a rare word": {
-            "median_ms": 0.114,
-            "p95_ms": 0.18,
+            "median_ms": 0.125,
+            "p95_ms": 0.165,
             "hits": 5
           },
           "text: two words": {
-            "median_ms": 0.959,
-            "p95_ms": 1.255,
+            "median_ms": 1.045,
+            "p95_ms": 1.179,
             "hits": 1839
           },
           "prefix: 3 letters*": {
-            "median_ms": 2.333,
-            "p95_ms": 4.221,
+            "median_ms": 2.76,
+            "p95_ms": 5.333,
             "hits": 3552
           },
           "filter genre, sort year desc": {
-            "median_ms": 0.384,
-            "p95_ms": 0.433,
+            "median_ms": 0.485,
+            "p95_ms": 0.636,
             "hits": 1394
           },
           "range of years, sort artist": {
-            "median_ms": 0.635,
-            "p95_ms": 0.908,
+            "median_ms": 0.686,
+            "p95_ms": 0.99,
             "hits": 1315
           },
           "text + drilldown (2 facets)": {
-            "median_ms": 1.392,
-            "p95_ms": 1.739,
+            "median_ms": 1.482,
+            "p95_ms": 3.648,
             "hits": 5524
           },
           "page 50, sorted on year": {
-            "median_ms": 1.389,
-            "p95_ms": 1.677,
+            "median_ms": 1.444,
+            "p95_ms": 2.154,
             "hits": 10000
           }
         },
-        "rebuild_seconds": 0.87,
+        "rebuild_seconds": 0.81,
         "disk": {
           "data_bytes": 4787405,
-          "index_bytes": 2914569
+          "index_bytes": 2913608
         }
       },
       "sqlite": {
         "load": {
-          "seconds": 0.34,
-          "per_second": 29847
+          "seconds": 0.33,
+          "per_second": 29912
         },
         "get": {
           "median_ms": 0.009,
-          "p95_ms": 0.015
+          "p95_ms": 0.012
         },
         "update": {
-          "median_ms": 0.306,
-          "p95_ms": 0.533
+          "median_ms": 0.175,
+          "p95_ms": 0.443
         },
         "queries": {
           "text: a common word": {
-            "median_ms": 4.335,
-            "p95_ms": 5.184,
+            "median_ms": 4.457,
+            "p95_ms": 6.761,
             "hits": 5530
           },
           "text: a rare word": {
             "median_ms": 0.063,
-            "p95_ms": 0.079,
+            "p95_ms": 0.095,
             "hits": 5
           },
           "text: two words": {
-            "median_ms": 1.613,
-            "p95_ms": 3.923,
+            "median_ms": 1.526,
+            "p95_ms": 1.638,
             "hits": 1844
           },
           "prefix: 3 letters*": {
-            "median_ms": 3.3,
-            "p95_ms": 3.718,
+            "median_ms": 2.898,
+            "p95_ms": 3.322,
             "hits": 3559
           },
           "filter genre, sort year desc": {
-            "median_ms": 0.084,
-            "p95_ms": 0.111,
+            "median_ms": 0.065,
+            "p95_ms": 0.082,
             "hits": 1394
           },
           "range of years, sort artist": {
-            "median_ms": 0.18,
-            "p95_ms": 0.209,
+            "median_ms": 0.14,
+            "p95_ms": 0.161,
             "hits": 1315
           },
           "text + drilldown (2 facets)": {
-            "median_ms": 9.113,
-            "p95_ms": 10.33,
+            "median_ms": 10.429,
+            "p95_ms": 12.056,
             "hits": 5530
           },
           "page 50, sorted on year": {
-            "median_ms": 1.706,
-            "p95_ms": 1.89,
+            "median_ms": 1.828,
+            "p95_ms": 2.351,
             "hits": 10000
           }
         },
         "rebuild_seconds": 0.01,
         "disk": {
-          "data_bytes": 4423680,
+          "data_bytes": 4419584,
+          "index_bytes": null
+        }
+      },
+      "postgres": {
+        "load": {
+          "seconds": 0.55,
+          "per_second": 18022
+        },
+        "get": {
+          "median_ms": 0.109,
+          "p95_ms": 0.163
+        },
+        "update": {
+          "median_ms": 0.598,
+          "p95_ms": 0.955
+        },
+        "queries": {
+          "text: a common word": {
+            "median_ms": 7.474,
+            "p95_ms": 9.428,
+            "hits": 5530
+          },
+          "text: a rare word": {
+            "median_ms": 0.39,
+            "p95_ms": 0.65,
+            "hits": 5
+          },
+          "text: two words": {
+            "median_ms": 3.092,
+            "p95_ms": 3.682,
+            "hits": 1844
+          },
+          "prefix: 3 letters*": {
+            "median_ms": 4.357,
+            "p95_ms": 5.842,
+            "hits": 3559
+          },
+          "filter genre, sort year desc": {
+            "median_ms": 0.285,
+            "p95_ms": 0.39,
+            "hits": 1394
+          },
+          "range of years, sort artist": {
+            "median_ms": 0.515,
+            "p95_ms": 0.668,
+            "hits": 1315
+          },
+          "text + drilldown (2 facets)": {
+            "median_ms": 13.706,
+            "p95_ms": 18.401,
+            "hits": 5530
+          },
+          "page 50, sorted on year": {
+            "median_ms": 2.164,
+            "p95_ms": 2.648,
+            "hits": 10000
+          }
+        },
+        "rebuild_seconds": 0.02,
+        "disk": {
+          "data_bytes": 6201344,
           "index_bytes": null
         }
       }
@@ -143,127 +205,188 @@
       "size": 100000,
       "swindl": {
         "load": {
-          "seconds": 39.75,
-          "per_second": 2516
+          "seconds": 40.37,
+          "per_second": 2477
         },
         "get": {
           "median_ms": 0.016,
           "p95_ms": 0.024
         },
         "update": {
-          "median_ms": 21.046,
-          "p95_ms": 39.537
+          "median_ms": 18.717,
+          "p95_ms": 28.26
         },
         "update_timer": {
-          "median_ms": 1.415,
-          "p95_ms": 2.621
+          "median_ms": 1.7,
+          "p95_ms": 3.509
         },
         "queries": {
           "text: a common word": {
-            "median_ms": 2.654,
-            "p95_ms": 2.826,
+            "median_ms": 2.796,
+            "p95_ms": 5.327,
             "hits": 55075
           },
           "text: a rare word": {
-            "median_ms": 0.449,
-            "p95_ms": 0.499,
+            "median_ms": 0.455,
+            "p95_ms": 0.551,
             "hits": 46
           },
           "text: two words": {
-            "median_ms": 1.961,
-            "p95_ms": 2.129,
+            "median_ms": 2.057,
+            "p95_ms": 2.466,
             "hits": 17979
           },
           "prefix: 3 letters*": {
-            "median_ms": 7.572,
-            "p95_ms": 9.743,
+            "median_ms": 7.884,
+            "p95_ms": 9.233,
             "hits": 35430
           },
           "filter genre, sort year desc": {
-            "median_ms": 0.772,
-            "p95_ms": 0.944,
+            "median_ms": 0.737,
+            "p95_ms": 0.797,
             "hits": 13867
           },
           "range of years, sort artist": {
-            "median_ms": 1.692,
-            "p95_ms": 2.166,
+            "median_ms": 1.687,
+            "p95_ms": 2.335,
             "hits": 13071
           },
           "text + drilldown (2 facets)": {
-            "median_ms": 3.424,
-            "p95_ms": 5.059,
+            "median_ms": 3.385,
+            "p95_ms": 3.578,
             "hits": 55075
           },
           "page 50, sorted on year": {
-            "median_ms": 3.337,
-            "p95_ms": 5.496,
+            "median_ms": 3.24,
+            "p95_ms": 3.409,
             "hits": 100000
           }
         },
-        "rebuild_seconds": 8.15,
+        "rebuild_seconds": 7.9,
         "disk": {
           "data_bytes": 47801878,
-          "index_bytes": 24802995
+          "index_bytes": 24793234
         }
       },
       "sqlite": {
         "load": {
-          "seconds": 7.25,
-          "per_second": 13785
+          "seconds": 7.28,
+          "per_second": 13728
         },
         "get": {
-          "median_ms": 0.012,
-          "p95_ms": 0.02
+          "median_ms": 0.011,
+          "p95_ms": 0.015
         },
         "update": {
-          "median_ms": 0.247,
-          "p95_ms": 0.542
+          "median_ms": 0.203,
+          "p95_ms": 0.41
         },
         "queries": {
           "text: a common word": {
-            "median_ms": 44.802,
-            "p95_ms": 52.316,
+            "median_ms": 43.844,
+            "p95_ms": 55.821,
             "hits": 55084
           },
           "text: a rare word": {
-            "median_ms": 0.141,
-            "p95_ms": 0.205,
+            "median_ms": 0.128,
+            "p95_ms": 0.188,
             "hits": 46
           },
           "text: two words": {
-            "median_ms": 15.307,
-            "p95_ms": 17.651,
+            "median_ms": 15.489,
+            "p95_ms": 18.803,
             "hits": 17983
           },
           "prefix: 3 letters*": {
-            "median_ms": 35.381,
-            "p95_ms": 40.53,
+            "median_ms": 32.51,
+            "p95_ms": 34.702,
             "hits": 35440
           },
           "filter genre, sort year desc": {
-            "median_ms": 0.284,
-            "p95_ms": 0.334,
+            "median_ms": 0.343,
+            "p95_ms": 0.457,
             "hits": 13867
           },
           "range of years, sort artist": {
-            "median_ms": 1.168,
-            "p95_ms": 2.427,
+            "median_ms": 1.201,
+            "p95_ms": 1.412,
             "hits": 13071
           },
           "text + drilldown (2 facets)": {
-            "median_ms": 113.038,
-            "p95_ms": 125.996,
+            "median_ms": 112.655,
+            "p95_ms": 130.395,
             "hits": 55084
           },
           "page 50, sorted on year": {
-            "median_ms": 3.613,
-            "p95_ms": 5.48,
+            "median_ms": 3.327,
+            "p95_ms": 3.407,
             "hits": 100000
           }
         },
-        "rebuild_seconds": 0.19,
+        "rebuild_seconds": 0.15,
         "disk": {
-          "data_bytes": 43851776,
+          "data_bytes": 43888640,
+          "index_bytes": null
+        }
+      },
+      "postgres": {
+        "load": {
+          "seconds": 5.82,
+          "per_second": 17186
+        },
+        "get": {
+          "median_ms": 0.114,
+          "p95_ms": 0.341
+        },
+        "update": {
+          "median_ms": 0.781,
+          "p95_ms": 1.335
+        },
+        "queries": {
+          "text: a common word": {
+            "median_ms": 46.661,
+            "p95_ms": 53.212,
+            "hits": 55084
+          },
+          "text: a rare word": {
+            "median_ms": 0.353,
+            "p95_ms": 0.821,
+            "hits": 46
+          },
+          "text: two words": {
+            "median_ms": 26.536,
+            "p95_ms": 32.014,
+            "hits": 17983
+          },
+          "prefix: 3 letters*": {
+            "median_ms": 43.559,
+            "p95_ms": 52.032,
+            "hits": 35440
+          },
+          "filter genre, sort year desc": {
+            "median_ms": 1.251,
+            "p95_ms": 1.855,
+            "hits": 13867
+          },
+          "range of years, sort artist": {
+            "median_ms": 1.493,
+            "p95_ms": 1.746,
+            "hits": 13071
+          },
+          "text + drilldown (2 facets)": {
+            "median_ms": 90.965,
+            "p95_ms": 103.613,
+            "hits": 55084
+          },
+          "page 50, sorted on year": {
+            "median_ms": 6.417,
+            "p95_ms": 6.825,
+            "hits": 100000
+          }
+        },
+        "rebuild_seconds": 0.21,
+        "disk": {
+          "data_bytes": 56844288,
           "index_bytes": null
         }
       }

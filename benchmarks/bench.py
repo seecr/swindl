@@ -1,30 +1,23 @@
-## begin license ##
-#
-# "Swindl"(Seecr Web Index and Database Lib) combines swl, sil and sdbl
-#
-# Copyright (C) 2026 Seecr (Seek You Too B.V.) https://seecr.nl
-#
-# This file is part of "Swindl"
-#
-# "Swindl" is licensed under the MIT License; see the LICENSE file.
-# SPDX-License-Identifier: MIT
-#
-## end license ##
-
-"""Benchmarks: swindl (sjdbl files + sil index) against SQLite with FTS5,
-on the same data and the same questions.
+"""Benchmarks: swindl (sjdbl files + sil index) against SQLite with FTS5, PostgreSQL
+with its full-text search and Meilisearch, on the same data and the same questions.
 
     PYTHONPATH=. python benchmarks/bench.py            # 10,000 and 100,000 records
     PYTHONPATH=. python benchmarks/bench.py --sizes 10000 --out /tmp/results.json
+    PYTHONPATH=. python benchmarks/bench.py --postgres "host=/tmp dbname=postgres" \
+        --meilisearch http://127.0.0.1:7700 --meilisearch-key <master key>
+
+swindl and SQLite are always measured. PostgreSQL and Meilisearch are servers: give
+their address to include them (each run makes and drops its own database or index;
+PostgreSQL needs psycopg, `pip install "psycopg[binary]"`).
 
 The data is a record collection (vinyl): title, artist, label, genre, country, format,
 year and notes, generated with a fixed seed. Words follow a Zipf distribution, so some
 words are in many records and most in few, as in real titles.
 
-Both sides are durable: swindl syncs every transaction (fsync), SQLite runs in WAL mode
-with synchronous=FULL. Both answer with whole objects: swindl reads the page's objects
-from their files, SQLite selects the page's rows. Timings are wall-clock, the median of
-many runs after a warm-up (the file system cache is warm for both).
+All sides are durable: swindl syncs every transaction (fsync), SQLite runs in WAL mode
+with synchronous=FULL, PostgreSQL with synchronous_commit on, and a Meilisearch write is
+waited for until its task is done. All answer with whole objects and the total number of
+hits. Timings are wall-clock, the median of many runs after a warm-up (caches warm).
 
 Not part of the package."""
 
@@ -160,7 +153,7 @@ def du(path):
     return sum(p.stat().st_size for p in path.rglob("*") if p.is_file())
 
 
-# --- the two sides ---
+# --- the sides ---
 
 
 class SwindlSide:
@@ -390,6 +383,281 @@ class SqliteSide:
         self.db.close()
 
 
+class PostgresSide:
+    """PostgreSQL with its full-text search: a tsvector column (generated, so always
+    up to date) with a GIN index, and B-tree indexes for the filters and sorts.
+    Durable: synchronous_commit on (the default)."""
+
+    name = "postgres"
+    COLUMNS = SqliteSide.COLUMNS
+
+    def __init__(self, dsn, size):
+        import psycopg
+
+        self.db_name = f"swindl_bench_{size}"
+        with psycopg.connect(dsn, autocommit=True) as admin:
+            admin.execute(f"DROP DATABASE IF EXISTS {self.db_name}")
+            admin.execute(f"CREATE DATABASE {self.db_name}")
+        self.dsn = psycopg.conninfo.make_conninfo(dsn, dbname=self.db_name)
+        # autocommit: every statement is its own transaction, unless in transaction()
+        self.db = psycopg.connect(self.dsn, autocommit=True)
+        # psycopg prepares a statement after 5 runs, and PostgreSQL may then switch to
+        # a generic plan: made for a common word, it scans everything for a rare one
+        # (4 ms instead of 0.3). A plan per query, as an application would want.
+        self.db.execute("SET plan_cache_mode = force_custom_plan")
+        self.db.execute("""
+                CREATE TABLE records (
+                    id TEXT PRIMARY KEY, rev TEXT, title TEXT, artist TEXT,
+                    label TEXT, genre TEXT, country TEXT, format TEXT,
+                    year INTEGER, notes TEXT,
+                    tsv tsvector GENERATED ALWAYS AS (
+                        to_tsvector('simple', title || ' ' || artist || ' ' || label)
+                    ) STORED);
+                CREATE INDEX records_tsv ON records USING GIN (tsv);
+                CREATE INDEX records_genre_year ON records (genre, year);
+                CREATE INDEX records_year_artist ON records (year, lower(artist));
+                CREATE INDEX records_artist ON records (lower(artist));
+                """)
+        self.qids = []
+
+    def load(self, records, per_transaction=1000):
+        for start in range(0, len(records), per_transaction):
+            rows = []
+            for values in records[start : start + per_transaction]:
+                id = str(uuid.uuid4())
+                rows.append((id, str(uuid.uuid4()), *(values[k] for k in (
+                    "title", "artist", "label", "genre", "country", "format",
+                    "year", "notes"))))  # fmt: skip
+                self.qids.append(id)
+            with self.db.transaction(), self.db.cursor() as cursor:
+                cursor.executemany(
+                    f"INSERT INTO records ({self.COLUMNS}) VALUES "
+                    "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    rows,
+                )
+        # as after any bulk load: VACUUM also moves the GIN index's pending entries
+        # into the index proper (until then a rare word took 4 ms instead of 0.4)
+        self.db.execute("VACUUM ANALYZE records")
+
+    def _objs(self, sql, params):
+        with self.db.cursor() as cursor:
+            cursor.execute(sql, params)
+            names = [d.name for d in cursor.description]
+            return [dict(zip(names, row)) for row in cursor.fetchall()]
+
+    def _one(self, sql, params):
+        return self.db.execute(sql, params).fetchone()[0]
+
+    def get(self, id):
+        return self._objs(f"SELECT {self.COLUMNS} FROM records WHERE id = %s", (id,))[0]
+
+    def update(self, id, title):
+        with self.db.transaction():
+            old = self.db.execute(
+                "SELECT rev FROM records WHERE id = %s", (id,)
+            ).fetchone()[0]
+            self.db.execute(
+                "UPDATE records SET title = %s, rev = %s WHERE id = %s AND rev = %s",
+                (title, str(uuid.uuid4()), id, old),
+            )
+
+    def _fts(self, tsquery):
+        where = "tsv @@ to_tsquery('simple', %s)"
+        total = self._one(f"SELECT count(*) FROM records WHERE {where}", (tsquery,))
+        objs = self._objs(
+            f"SELECT {self.COLUMNS} FROM records WHERE {where} "
+            "ORDER BY ts_rank(tsv, to_tsquery('simple', %s)) DESC LIMIT 20",
+            (tsquery, tsquery),
+        )
+        return total, objs
+
+    def text_query(self, words):
+        return self._fts(" | ".join(words.split()))
+
+    def prefix_query(self, prefix):
+        return self._fts(f"{prefix}:*")
+
+    def filter_sorted(self, genre):
+        total = self._one("SELECT count(*) FROM records WHERE genre = %s", (genre,))
+        objs = self._objs(
+            f"SELECT {self.COLUMNS} FROM records WHERE genre = %s "
+            "ORDER BY year DESC LIMIT 20",
+            (genre,),
+        )
+        return total, objs
+
+    def range_sorted(self, low, high):
+        total = self._one(
+            "SELECT count(*) FROM records WHERE year BETWEEN %s AND %s", (low, high)
+        )
+        objs = self._objs(
+            f"SELECT {self.COLUMNS} FROM records WHERE year BETWEEN %s AND %s "
+            "ORDER BY lower(artist) LIMIT 20",
+            (low, high),
+        )
+        return total, objs
+
+    def facets(self, words):
+        tsquery = " | ".join(words.split())
+        total, objs = self._fts(tsquery)
+        drilldown = {}
+        for column in ("genre", "country"):
+            with self.db.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT {column}, count(*) AS n FROM records "
+                    "WHERE tsv @@ to_tsquery('simple', %s) "
+                    f"GROUP BY {column} ORDER BY n DESC, {column} LIMIT 10",
+                    (tsquery,),
+                )
+                drilldown[column] = cursor.fetchall()
+        return total, objs, drilldown
+
+    def deep_page(self, page):
+        total = self._one("SELECT count(*) FROM records", ())
+        objs = self._objs(
+            f"SELECT {self.COLUMNS} FROM records ORDER BY year, id "
+            "LIMIT 20 OFFSET %s",
+            (page * 20,),
+        )
+        return total, objs
+
+    def rebuild(self):
+        self.db.execute("REINDEX INDEX records_tsv")
+
+    def disk(self):
+        return {
+            "data_bytes": self._one("SELECT pg_total_relation_size('records')", ()),
+            "index_bytes": None,
+        }
+
+    def close(self):
+        self.db.close()
+
+
+class MeilisearchSide:
+    """Meilisearch, a search server: the records as documents, with filters, sorts
+    and facets declared. Typo tolerance is off, so it finds what the others find.
+    Every write waits until its task is done, so it is searchable (and stored) when
+    it returns. Through its HTTP API, with the standard library only."""
+
+    name = "meilisearch"
+
+    def __init__(self, url, key, size):
+        self.url, self.key = url.rstrip("/"), key
+        self.index = f"swindl_bench_{size}"
+        self._request("DELETE", f"/indexes/{self.index}", wait=True, missing_ok=True)
+        self._request(
+            "POST", "/indexes", {"uid": self.index, "primaryKey": "id"}, wait=True
+        )
+        self._request(
+            "PATCH",
+            f"/indexes/{self.index}/settings",
+            {
+                "searchableAttributes": ["title", "artist", "label"],
+                "filterableAttributes": ["genre", "country", "year"],
+                "sortableAttributes": ["year", "artist_sort"],
+                "typoTolerance": {"enabled": False},
+                "pagination": {"maxTotalHits": 1_000_000},
+                "faceting": {"maxValuesPerFacet": 100},
+            },
+            wait=True,
+        )
+        self.qids = []
+
+    def _request(self, method, path, body=None, wait=False, missing_ok=False):
+        import urllib.error
+        import urllib.request
+
+        data = None if body is None else json.dumps(body).encode()
+        request = urllib.request.Request(self.url + path, data=data, method=method)
+        request.add_header("Content-Type", "application/json")
+        if self.key:
+            request.add_header("Authorization", f"Bearer {self.key}")
+        try:
+            with urllib.request.urlopen(request) as response:
+                answer = json.loads(response.read() or b"null")
+        except urllib.error.HTTPError as e:
+            if missing_ok and e.code == 404:
+                return None
+            raise RuntimeError(f"{method} {path}: {e.code} {e.read()[:300]}") from e
+        if wait and answer and "taskUid" in answer:
+            self._wait(answer["taskUid"])
+        return answer
+
+    def _wait(self, task):
+        while True:
+            state = self._request("GET", f"/tasks/{task}")
+            if state["status"] == "succeeded":
+                return
+            if state["status"] in ("failed", "canceled"):
+                raise RuntimeError(f"task {task}: {state.get('error')}")
+            time.sleep(0.0005)
+
+    def _doc(self, id, rev, values):
+        return {"id": id, "rev": rev, "artist_sort": values["artist"].lower(),
+                **values}  # fmt: skip
+
+    def load(self, records, per_transaction=1000):
+        for start in range(0, len(records), per_transaction):
+            docs = []
+            for values in records[start : start + per_transaction]:
+                id = uuid.uuid4().hex
+                docs.append(self._doc(id, uuid.uuid4().hex, values))
+                self.qids.append(id)
+            self._request("POST", f"/indexes/{self.index}/documents", docs, wait=True)
+
+    def get(self, id):
+        return self._request("GET", f"/indexes/{self.index}/documents/{id}")
+
+    def update(self, id, title):
+        # no revisions in Meilisearch: a partial update, waited for
+        self._request(
+            "PUT",
+            f"/indexes/{self.index}/documents",
+            [{"id": id, "title": title}],
+            wait=True,
+        )
+
+    def _search(self, **body):
+        answer = self._request("POST", f"/indexes/{self.index}/search",
+                               {"limit": 20, **body})  # fmt: skip
+        return answer
+
+    def text_query(self, words):
+        r = self._search(q=words, matchingStrategy="last")
+        return r["estimatedTotalHits"], r["hits"]
+
+    def prefix_query(self, prefix):
+        r = self._search(q=prefix)  # the last word is a prefix in Meilisearch
+        return r["estimatedTotalHits"], r["hits"]
+
+    def filter_sorted(self, genre):
+        r = self._search(filter=f'genre = "{genre}"', sort=["year:desc"])
+        return r["estimatedTotalHits"], r["hits"]
+
+    def range_sorted(self, low, high):
+        r = self._search(filter=f"year {low} TO {high}", sort=["artist_sort:asc"])
+        return r["estimatedTotalHits"], r["hits"]
+
+    def facets(self, words):
+        r = self._search(q=words, facets=["genre", "country"])
+        return r["estimatedTotalHits"], r["hits"], r["facetDistribution"]
+
+    def deep_page(self, page):
+        r = self._search(sort=["year:asc"], offset=page * 20)
+        return r["estimatedTotalHits"], r["hits"]
+
+    def rebuild(self):
+        pass  # no equivalent: Meilisearch is the index
+
+    def disk(self):
+        stats = self._request("GET", "/stats")
+        return {"data_bytes": stats.get("databaseSize"), "index_bytes": None}
+
+    def close(self):
+        self._request("DELETE", f"/indexes/{self.index}", wait=True)
+
+
 # --- the run ---
 
 
@@ -410,13 +678,20 @@ def questions(data):
     }
 
 
-def run(size, workdir, runs):
+def run(size, workdir, runs, postgres=None, meilisearch=None, meilisearch_key=None):
     data = Data()
     records = [data.record() for _ in range(size)]
     results = {"size": size}
-    for side_class in (SwindlSide, SqliteSide):
-        path = workdir / f"{side_class.name}-{size}"
-        side = side_class(path)
+    makers = [
+        lambda: SwindlSide(workdir / f"swindl-{size}"),
+        lambda: SqliteSide(workdir / f"sqlite-{size}"),
+    ]
+    if postgres:
+        makers.append(lambda: PostgresSide(postgres, size))
+    if meilisearch:
+        makers.append(lambda: MeilisearchSide(meilisearch, meilisearch_key, size))
+    for make in makers:
+        side = make()
         out = results.setdefault(side.name, {})
 
         start = time.perf_counter()
@@ -455,14 +730,18 @@ def run(size, workdir, runs):
 
         start = time.perf_counter()
         side.rebuild()
-        out["rebuild_seconds"] = round(time.perf_counter() - start, 2)
+        out["rebuild_seconds"] = (
+            None
+            if side.name == "meilisearch"
+            else round(time.perf_counter() - start, 2)
+        )
         out["disk"] = side.disk()
         side.close()
         print(f"  {side.name} {size}: done", file=sys.stderr)
     return results
 
 
-def machine():
+def machine(postgres=None, meilisearch=None, meilisearch_key=None):
     info = {
         "python": platform.python_version(),
         "platform": platform.platform(),
@@ -490,6 +769,17 @@ def machine():
         )
     except IndexError:
         pass
+    if postgres:
+        import psycopg
+
+        with psycopg.connect(postgres) as db:
+            info["postgres"] = (
+                db.execute("SHOW server_version").fetchone()[0].split()[0]
+            )
+    if meilisearch:
+        side = MeilisearchSide.__new__(MeilisearchSide)
+        side.url, side.key = meilisearch.rstrip("/"), meilisearch_key
+        info["meilisearch"] = side._request("GET", "/version")["pkgVersion"]
     return info
 
 
@@ -497,59 +787,93 @@ def _ms(value):
     return f"{value:.2f}" if value < 10 else f"{value:.0f}"
 
 
-def _ratio(ours, theirs):
-    """How many times faster swindl is (or slower, as 1/x)."""
-    if ours <= theirs:
-        return f"**{theirs / ours:.1f}x faster**"
-    return f"{ours / theirs:.1f}x slower"
+SIDES = {
+    "swindl": ("swindl", "nothing: a library"),
+    "sqlite": ("SQLite + FTS5", "nothing: a library"),
+    "postgres": ("PostgreSQL", "a database server"),
+    "meilisearch": ("Meilisearch", "a search server, and a store for the data"),
+}
 
 
 def report(results):
-    """The results as Markdown tables (for benchmarks/RESULTS.md and the website)."""
+    """The results as Markdown tables (for benchmarks/RESULTS.md and the website):
+    one column per side, the fastest in bold."""
     m = results["machine"]
+    versions = ", ".join(
+        f"{name} {m[key]}"
+        for name, key in [("Python", "python"), ("tantivy", "tantivy"),
+                          ("SQLite", "sqlite"), ("PostgreSQL", "postgres"),
+                          ("Meilisearch", "meilisearch")]  # fmt: skip
+        if m.get(key)
+    )
     lines = [
         f"Measured {results['date']} on {m['cpu']}, {m['cpus']} CPUs, "
-        f"{m['platform'].split('-with')[0]}; Python {m['python']}, tantivy "
-        f"{m.get('tantivy', '?')}, SQLite {m['sqlite']}. Median of "
-        "repeated runs, in milliseconds.",
+        f"{m['platform'].split('-with')[0]}; {versions}. Median of repeated runs, "
+        "in milliseconds; the fastest in bold.",
         "",
     ]
     for run in results["runs"]:
-        sw, sq = run["swindl"], run["sqlite"]
+        sides = [name for name in SIDES if name in run]
+        head = " | ".join(SIDES[name][0] for name in sides)
+
+        def row(label, values, fmt=_ms, best=min):
+            known = [v for v in values if v is not None]
+            winner = best(known) if known else None
+            cells = [
+                "-" if v is None else (f"**{fmt(v)}**" if v == winner else fmt(v))
+                for v in values
+            ]
+            return f"| {label} | " + " | ".join(cells) + " |"
+
         lines += [
             f"### {run['size']:,} records",
             "",
-            "| Question | hits | swindl | SQLite + FTS5 | swindl is |",
-            "|---|---:|---:|---:|---|",
+            f"| Question | hits | {head} |",
+            "|---|---:|" + "---:|" * len(sides),
         ]
-        for label, ours in sw["queries"].items():
-            theirs = sq["queries"][label]
+        for label, ours in run["swindl"]["queries"].items():
+            values = [run[name]["queries"][label]["median_ms"] for name in sides]
             lines.append(
-                f"| {label} | {ours['hits']:,} | {_ms(ours['median_ms'])} | "
-                f"{_ms(theirs['median_ms'])} | "
-                f"{_ratio(ours['median_ms'], theirs['median_ms'])} |"
+                row(f"{label}", values).replace(
+                    f"| {label} |", f"| {label} | {ours['hits']:,} |", 1
+                )
             )
-        lines += [
-            f"| get one object by id | 1 | {_ms(sw['get']['median_ms'])} | "
-            f"{_ms(sq['get']['median_ms'])} | "
-            f"{_ratio(sw['get']['median_ms'], sq['get']['median_ms'])} |",
-            "",
-            "| Writing | swindl | SQLite + FTS5 |",
-            "|---|---:|---:|",
-            f"| change one object, searchable at once (ms) | "
-            f"{_ms(sw['update']['median_ms'])} | {_ms(sq['update']['median_ms'])} |",
-            f"| change one object, index on the timer (ms) | "
-            f"{_ms(sw['update_timer']['median_ms'])} | - |",
-            f"| load, transactions of 1,000 (objects/s) | "
-            f"{sw['load']['per_second']:,} | {sq['load']['per_second']:,} |",
-            f"| rebuild the search index (s) | {sw['rebuild_seconds']} | "
-            f"{sq['rebuild_seconds']} |",
-            f"| on disk (MB) | {sw['disk']['data_bytes'] / 1e6:.0f} files + "
-            f"{sw['disk']['index_bytes'] / 1e6:.0f} index | "
-            f"{sq['disk']['data_bytes'] / 1e6:.0f} |",
-            "",
-        ]
+        lines.append(
+            row(
+                "get one object by id", [run[n]["get"]["median_ms"] for n in sides]
+            ).replace("| get one object by id |", "| get one object by id | 1 |", 1)
+        )
+        lines += ["", f"| Writing | {head} |", "|---|" + "---:|" * len(sides)]
+        lines.append(row("change one object, searchable at once (ms)",
+                         [run[n]["update"]["median_ms"] for n in sides]))  # fmt: skip
+        lines.append(row(
+            "change one object, index on the timer (ms)",
+            [run[n].get("update_timer", {}).get("median_ms") for n in sides],
+        ))  # fmt: skip
+        lines.append(row(
+            "load, transactions of 1,000 (objects/s)",
+            [run[n]["load"]["per_second"] for n in sides],
+            fmt=lambda v: f"{v:,}", best=max,
+        ))  # fmt: skip
+        lines.append(row(
+            "rebuild the search index (s)",
+            [run[n]["rebuild_seconds"] for n in sides], fmt=str,
+        ))  # fmt: skip
+        lines.append(row(
+            "on disk (MB)",
+            [_disk(run[n]["disk"]) for n in sides], fmt=lambda v: f"{v:.0f}",
+        ))  # fmt: skip
+        lines.append(
+            "| what you run | " + " | ".join(SIDES[n][1] for n in sides) + " |"
+        )
+        lines.append("")
     return "\n".join(lines)
+
+
+def _disk(disk):
+    if disk.get("data_bytes") is None:
+        return None
+    return (disk["data_bytes"] + (disk.get("index_bytes") or 0)) / 1e6
 
 
 def main():
@@ -561,17 +885,27 @@ def main():
     parser.add_argument(
         "--report", type=Path, help="only print the Markdown of an earlier results file"
     )
+    parser.add_argument("--postgres", help="a PostgreSQL connection string (libpq)")
+    parser.add_argument("--meilisearch", help="the url of a Meilisearch server")
+    parser.add_argument("--meilisearch-key", help="its master key, if it has one")
     args = parser.parse_args()
     if args.report:
         print(report(json.loads(args.report.read_text())))
         return
 
     workdir = args.workdir or Path(tempfile.mkdtemp(prefix="swindl-bench-"))
-    results = {"machine": machine(), "date": time.strftime("%Y-%m-%d"), "runs": []}
+    results = {
+        "machine": machine(args.postgres, args.meilisearch, args.meilisearch_key),
+        "date": time.strftime("%Y-%m-%d"),
+        "runs": [],
+    }
     try:
         for size in args.sizes:
             print(f"{size} records", file=sys.stderr)
-            results["runs"].append(run(size, workdir, args.runs))
+            results["runs"].append(
+                run(size, workdir, args.runs, args.postgres, args.meilisearch,
+                    args.meilisearch_key)  # fmt: skip
+            )
     finally:
         if not args.workdir:
             shutil.rmtree(workdir, ignore_errors=True)
