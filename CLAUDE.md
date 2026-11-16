@@ -104,5 +104,4 @@ against a local sjdbl checkout: `pip install -e ../sjdbl`.
 - Python >= 3.11. Versions come from git tags via `setuptools_scm` (`2.0.0`);
   `swindl/_version.py` is generated. Don't tag or push unless asked.
 - Report behaviour changes and anything left undone.
-- Known loose ends: `QueryResult.summary` is Dutch text that can't be translated;
-  `pyproject.toml` names a `LICENSE` that is not in the repository.
+- Known loose ends: `QueryResult.summary` is Dutch text that can't be translated.

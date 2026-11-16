@@ -16,9 +16,18 @@ class Person(Base):
 
 store = Store(data_dir, [Person])
 person = store.create(Person, from_form(Person, form, ["name", "dob"]))
+
+with store.transaction():          # stored and indexed together, or not at all
+    store.put(person, invoice)
+    store.delete(basket)
 ```
 
+Crash safe: a transaction is in the files completely or not at all, and the index
+catches up when the store is opened again. `swindl-check` tells whether the index
+matches the files.
+
 - `doc/reference.md`: the reference.
+- `doc/guarantees.md`: what is promised, what not, the limits, backups.
 - `doc/webadapter.md`: the WebAdapter.
 - `examples/`: runnable examples (`PYTHONPATH=. python examples/store.py`).
 - `CHANGELOG.md`: what changed, and how to upgrade.
