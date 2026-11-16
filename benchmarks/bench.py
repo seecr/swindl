@@ -89,6 +89,14 @@ class Record(Base):
         return values
 
 
+# On macOS a plain fsync() does not flush the drive's own cache; F_FULLFSYNC does, at
+# tens of milliseconds a time. tantivy (Rust's sync_all) always does a full sync, so on
+# macOS SQLite and PostgreSQL are made to do so too, for writes that are equally
+# durable. (sjdbl's files use a plain fsync, as the databases do by default: that is
+# swindl's "index on the timer" row.)
+FULL_SYNC = sys.platform == "darwin"
+
+
 # --- the data ---
 
 
@@ -243,6 +251,9 @@ class SqliteSide:
         self.db = sqlite3.connect(path / "records.db", check_same_thread=False)
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA synchronous=FULL")
+        if FULL_SYNC:  # see FULL_SYNC
+            self.db.execute("PRAGMA fullfsync=ON")
+            self.db.execute("PRAGMA checkpoint_fullfsync=ON")
         self.db.executescript("""
             CREATE TABLE records (
                 id TEXT UNIQUE NOT NULL, rev TEXT, title TEXT, artist TEXT,
@@ -405,6 +416,11 @@ class PostgresSide:
         # a generic plan: made for a common word, it scans everything for a rare one
         # (4 ms instead of 0.3). A plan per query, as an application would want.
         self.db.execute("SET plan_cache_mode = force_custom_plan")
+        self.full_sync = False
+        if FULL_SYNC:  # see FULL_SYNC; a server setting, set back in close()
+            self.db.execute("ALTER SYSTEM SET wal_sync_method = 'fsync_writethrough'")
+            self.db.execute("SELECT pg_reload_conf()")
+            self.full_sync = True
         self.db.execute("""
                 CREATE TABLE records (
                     id TEXT PRIMARY KEY, rev TEXT, title TEXT, artist TEXT,
@@ -531,6 +547,9 @@ class PostgresSide:
         }
 
     def close(self):
+        if self.full_sync:
+            self.db.execute("ALTER SYSTEM RESET wal_sync_method")
+            self.db.execute("SELECT pg_reload_conf()")
         self.db.close()
 
 
@@ -750,6 +769,7 @@ def machine(postgres=None, meilisearch=None, meilisearch_key=None):
         "platform": platform.platform(),
         "cpus": __import__("os").cpu_count(),
         "sqlite": sqlite3.sqlite_version,
+        "full_sync": FULL_SYNC,
         "swindl": swindl.__version__ if hasattr(swindl, "__version__") else "",
     }
     try:
@@ -811,7 +831,15 @@ def report(results):
     )
     lines = [
         f"Measured {results['date']} on {m['cpu']}, {m['cpus']} CPUs, "
-        f"{m['platform'].split('-with')[0]}; {versions}. Median of repeated runs, "
+        f"{m['platform'].split('-with')[0]}; {versions}. "
+        + (
+            "Full syncs (macOS): SQLite with fullfsync, PostgreSQL with "
+            "wal_sync_method=fsync_writethrough, as tantivy does; sjdbl's files with "
+            "a plain fsync. "
+            if m.get("full_sync")
+            else ""
+        )
+        + "Median of repeated runs, "
         "in milliseconds; the fastest in bold.",
         "",
     ]

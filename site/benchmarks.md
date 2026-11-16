@@ -31,15 +31,30 @@ a few words are in many records, most in few.
 - Timings are the median of 50 runs after a warm-up; caches are warm for all. PostgreSQL
   runs on the same machine, over a Unix socket.
 
-**What it shows.** Where the question is about words (full text, prefixes, facets over
-many hits), sil's index on tantivy is far ahead of both databases, and gets further ahead
-as the data grows: at 100,000 records a search with two facets takes 3 ms against about
-100. Where the question is an exact lookup or a sort on a B-tree index, SQLite is
-fastest; swindl answers those in a millisecond or two, which is plenty for a web page.
-Writing is the databases' strong side: one file per object, synced, costs more than a
-row in a page, and a change that must be searchable at once waits for tantivy's commit
-(most of the 17-20 ms). With the default commit timer a change takes 1-2 ms, and is
-searchable within 5 seconds.
+**What it shows.**
+
+- **Questions about words** (full text, prefixes, facets over many hits) split the field
+  in two. Meilisearch and swindl answer in about a millisecond, also at 100,000 records;
+  the databases take tens of milliseconds there, up to a hundred with facets, and get
+  slower as the data grows. Meilisearch, made for exactly this, is fastest on most of
+  them; swindl is a close second, without a server.
+- **Exact lookups and sorts on a B-tree index** are SQLite's: fastest, with everyone
+  else within a millisecond. A deep page (page 50) is where Meilisearch is slow.
+- **Writing** is the databases' strong side. One file per object, synced, costs more
+  than a row in a page, and a change that must be searchable at once waits for
+  tantivy's commit. With the default commit timer a change takes about a millisecond,
+  and is searchable within 5 seconds.
+- **What you run**: swindl and SQLite are libraries. PostgreSQL is a server to install,
+  secure, back up and upgrade. Meilisearch is a server too, and only an index: your data
+  still needs a store next to it, kept in step.
+
+**On macOS**, a plain `fsync` does not flush the drive's own cache; a full sync
+(`F_FULLFSYNC`) does, and costs tens of milliseconds. tantivy always does a full sync, so
+on macOS the benchmark makes SQLite (`fullfsync`) and PostgreSQL
+(`wal_sync_method = fsync_writethrough`, set for the run and set back after) do the
+same, for writes that are equally durable. sjdbl's files use a plain `fsync`, as the
+databases do by default; that is swindl's "index on the timer" row. On Linux, `fsync`
+flushes the drive's cache and all of this doesn't apply.
 
 Run it yourself (the numbers depend most on your disk). PostgreSQL and Meilisearch are
 included when you give their address:
