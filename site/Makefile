@@ -57,7 +57,7 @@ content/example.md: $(SWINDL_DIR)/examples/collection/README.md page.sh
 	$(call page,An example application,swindl,$(SWINDL_VERSION),,$(GITHUB)/swindl/tree/main/examples/collection,$<)
 # the benchmarks: how they are made (benchmarks.md, here) and the results of the last run
 content/benchmarks.md: benchmarks.md $(SWINDL_DIR)/benchmarks/RESULTS.md page.sh
-	{ cat benchmarks.md; sed '1,/^Measured/{/^Measured/!d}' $(SWINDL_DIR)/benchmarks/RESULTS.md; } \
+	{ cat benchmarks.md; awk '/^Measured/ { found = 1 } found' $(SWINDL_DIR)/benchmarks/RESULTS.md; } \
 	    > benchmarks.tmp.md
 	$(call page,Benchmarks,swindl,$(SWINDL_VERSION),,$(GITHUB)/swindl/tree/main/benchmarks,benchmarks.tmp.md)
 	rm benchmarks.tmp.md
