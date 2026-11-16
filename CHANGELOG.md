@@ -4,6 +4,11 @@
 
 Crash-safe transactions over files and index. Needs sjdbl 0.4.0.
 
+### License
+
+- swindl is now MIT licensed (was GPLv2), like SWL. So are sjdbl (0.4.0) and sil
+  (3.1.1).
+
 ### Breaking changes
 
 - `Store.batch()` is replaced by `Store.transaction()`: all puts and deletes of the block

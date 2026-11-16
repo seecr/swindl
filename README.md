@@ -34,4 +34,4 @@ matches the files.
   collection, built on SWL and swindl.
 - `CHANGELOG.md`: what changed, and how to upgrade.
 
-GPLv2, by [Seecr](https://seecr.nl).
+MIT licensed, by [Seecr](https://seecr.nl).

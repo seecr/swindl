@@ -2,7 +2,7 @@
 
 The storage side of an SWL application: sjdbl's JSON files (objects) and sil's index
 (searching) behind one `Store`, plus the WebAdapter that converts and checks what comes
-in from a web form. GPLv2. Maintained by Seecr (Johan Jonkers, Thijs Janssen).
+in from a web form. MIT licensed. Maintained by Seecr (Johan Jonkers, Thijs Janssen).
 `doc/reference.md` is the user-facing reference; keep it in step with the code.
 
 ## Layout
