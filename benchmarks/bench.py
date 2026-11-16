@@ -581,16 +581,19 @@ class MeilisearchSide:
                 return None
             raise RuntimeError(f"{method} {path}: {e.code} {e.read()[:300]}") from e
         if wait and answer and "taskUid" in answer:
-            self._wait(answer["taskUid"])
+            self._wait(answer["taskUid"], missing_ok)
         return answer
 
-    def _wait(self, task):
+    def _wait(self, task, missing_ok=False):
         while True:
             state = self._request("GET", f"/tasks/{task}")
             if state["status"] == "succeeded":
                 return
+            error = state.get("error") or {}
+            if missing_ok and error.get("code") == "index_not_found":
+                return  # deleting what isn't there: the task fails, which is fine
             if state["status"] in ("failed", "canceled"):
-                raise RuntimeError(f"task {task}: {state.get('error')}")
+                raise RuntimeError(f"task {task}: {error}")
             time.sleep(0.0005)
 
     def _doc(self, id, rev, values):
