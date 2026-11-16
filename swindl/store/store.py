@@ -23,6 +23,7 @@
 ## end license ##
 
 import logging
+import threading
 
 from seecr_stdlib import first
 from sjdbl import Store as JsonStore
@@ -100,6 +101,9 @@ class Store(object):
         self._indexes = Indexes(
             path=mkdir(path / "index"), models=models, commit=commit
         )
+        # Every change holds it around the files and the index, so both see changes in
+        # the same order (and Indexes' cache is used by one thread at a time).
+        self._lock = threading.RLock()
         self._models = {}
         for model in models:
             if not issubclass(model, Base):
@@ -123,9 +127,10 @@ class Store(object):
         return obj
 
     def put(self, *objs):
-        for obj in objs:
-            self._store.put(obj)
-            self._indexes.add_record(obj)
+        with self._lock:
+            for obj in objs:
+                self._store.put(obj)
+                self._indexes.add_record(obj)
 
     def batch(self):
         """A block of many puts with one commit of the index at its end, for
@@ -199,7 +204,12 @@ class Store(object):
     def find_by_field(self, cls, field, value):
         results = self._indexes.search_by_term(cls, field, value)
 
-        return [self._get(doc[__ID__]) for doc in results["docs"]]
+        return self._objects(results["docs"])
+
+    def _objects(self, docs):
+        """The objects of index hits. A hit without a file (deleted between the search
+        and the read, or left in the index by a crash) is skipped."""
+        return [obj for doc in docs if (obj := self._get(doc[__ID__])) is not None]
 
     def query(self, query_params):
         objs = []
@@ -227,7 +237,7 @@ class Store(object):
 
         total = results["count"]
 
-        objs = [self._get(doc[__ID__]) for doc in results["docs"]]
+        objs = self._objects(results["docs"])
 
         return QueryResult(
             objs=objs, total=total, params=query_params, drilldown=results["drilldown"]
@@ -237,19 +247,21 @@ class Store(object):
         """Removes it from the files and the index: an object, a reference to one (a
         Proxy, as references and collections give; nothing is loaded) or its qid."""
         qid = obj if isinstance(obj, str) else obj.qid
-        self._store.delete(obj if isinstance(obj, Base) else qid)
-        self._indexes.delete_record(qid)
+        with self._lock:
+            self._store.delete(obj if isinstance(obj, Base) else qid)
+            self._indexes.delete_record(qid)
 
     def archive(self, obj):
         obj.mark_archived(self)
 
     def reindex(self, models):
-        self._indexes.delete_all()
-        for model in models:
-            if not hasattr(model, "INDEX"):
-                continue
-            logger.info(f"Reindexing {model.__name__}")
-            records = self._store.list(model)
-            for record in records:
-                logger.info(f"Reindexing {record.qid}")
-                self._indexes.add_record(record)
+        with self._lock:
+            self._indexes.delete_all()
+            for model in models:
+                if not hasattr(model, "INDEX"):
+                    continue
+                logger.info(f"Reindexing {model.__name__}")
+                records = self._store.list(model)
+                for record in records:
+                    logger.info(f"Reindexing {record.qid}")
+                    self._indexes.add_record(record)

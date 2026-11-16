@@ -212,3 +212,101 @@ def test_batch_commits_when_it_raises_and_deletes_at_once(tmp_path):
             raise ValueError("oops")
     assert persons.count == 3
     assert [p.name for p in store.list(Person)] == ["kept"]
+
+
+class Counter(Base):
+    FIELDS = Base.FIELDS + [Field.str("name"), Field.int("count")]
+    INDEX = [IndexField.untokenized(name="name"), IndexField.untokenized(name="count")]
+
+    def index_values(self):
+        return {"name": self.name, "count": str(self.count)}
+
+
+def test_threads_saving_the_same_objects(tmp_path):
+    """Many threads change the same objects at once (as plain def endpoints do from
+    Starlette's thread pool): no exception other than a conflict, and afterwards the
+    index has the values in the files."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    store = Store(tmp_path, [Counter], commit=Commit(immediate=True))
+    counters = [Counter.create(name=f"c{n}") for n in range(5)]
+    for counter in counters:
+        store.put(counter)
+
+    def bump(n):
+        qid = counters[n % 5].qid
+        while True:
+            counter = store.get(qid)
+            counter.update(count=counter.count + 1)
+            try:
+                store.put(counter)
+                return
+            except Exception as e:  # sjdbl's HasChangedException: load again
+                assert type(e).__name__ == "HasChangedException"
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(bump, range(200)))
+
+    for counter in counters:
+        on_disk = store.get(counter.qid)
+        assert on_disk.count == 40
+        found = store.find_one(Counter, name=on_disk.name, count=str(on_disk.count))
+        assert found is not None and found.qid == counter.qid
+
+
+def test_a_hit_without_a_file_is_skipped(tmp_path):
+    """An id in the index whose file is gone (a crash between the file delete and the
+    index delete) gives no None among the results."""
+    store = Store(tmp_path, [Counter], commit=Commit(immediate=True))
+    kept, gone = Counter.create(name="kept"), Counter.create(name="gone")
+    store.put(kept, gone)
+    (tmp_path / "store" / "Counter" / f"{gone.id}.json").unlink()
+
+    result = store.query(QueryParams(Counter))
+    assert [obj.qid for obj in result.objs] == [kept.qid]
+    assert [obj.qid for obj in store.list(Counter)] == [kept.qid]
+    assert store.find_by_field(Counter, "name", "gone") == []
+
+
+def test_the_index_gets_the_last_saved_values(tmp_path, monkeypatch):
+    """Thread A saves the file and is slow to index; thread B saves a newer version
+    meanwhile. The index must end with B's values, not A's."""
+    import threading
+
+    store = Store(tmp_path, [Counter], commit=Commit(immediate=True))
+    counter = Counter.create(name="c")
+    store.put(counter)
+    b_done = threading.Event()
+    add_record = store._indexes.add_record
+
+    def slow_add_record(obj):
+        if obj.count == 1:  # A: wait (at most a moment) for B to have saved
+            b_done.wait(timeout=0.5)
+        add_record(obj)
+
+    monkeypatch.setattr(store._indexes, "add_record", slow_add_record)
+
+    def a():
+        obj = store.get(counter.qid)
+        obj.update(count=1)
+        store.put(obj)
+
+    thread_a = threading.Thread(target=a)
+    thread_a.start()
+    while store.get(counter.qid).count != 1:  # A's file is written
+        pass
+
+    def b():
+        obj = store.get(counter.qid)
+        obj.update(count=2)
+        store.put(obj)
+        b_done.set()
+
+    thread_b = threading.Thread(target=b)
+    thread_b.start()
+    thread_a.join()
+    thread_b.join()
+
+    assert store.get(counter.qid).count == 2
+    assert store.find_one(Counter, count="2") is not None
+    assert store.find_one(Counter, count="1") is None

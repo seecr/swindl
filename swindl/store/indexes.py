@@ -53,7 +53,8 @@ class Indexes:
         self._indexes = {}
         # qid -> the values last given to the index for it: a put that changes no
         # indexed value skips the index (and its commit). Bounded; forgetting only
-        # means the next put indexes again.
+        # means the next put indexes again. Not thread safe on its own: Store holds
+        # its lock around every change.
         self._indexed = OrderedDict()
         for model in models:
             if not issubclass(model, Base) or not hasattr(model, "INDEX"):

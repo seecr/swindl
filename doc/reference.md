@@ -188,7 +188,7 @@ order in which the objects were indexed. With a query and no sort, the best matc
 | | |
 |---|---|
 | `objs` | the objects of this page |
-| `total` | the number of hits |
+| `total` | the number of hits (in the index; a hit whose file is gone is left out of `objs` but still counted) |
 | `start`, `stop` | the numbers of the first and last hit of this page, from 1 |
 | `pages.first`, `.prev`, `.next`, `.last` | page numbers, `None` where there is none |
 | `is_last_page()` | |

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.1 (2026-11-16)
+
+### Fixed
+
+- Changes from several threads (plain `def` endpoints run in Starlette's thread pool) are
+  safe: `put()`, `delete()` and `reindex()` hold one lock around the files and the index.
+  Before, a slow thread could give the index older values than the files had, and the
+  cache of indexed values could raise a `KeyError`.
+- `query()`, `list()` and `find_by_field()` skip a hit whose file is gone (deleted
+  between the search and the read, or left in the index by a crash between the file
+  delete and the index delete). They used to return `None` among the objects.
+
 ## 2.2.0 (2026-11-10)
 
 ### Added
