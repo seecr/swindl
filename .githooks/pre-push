@@ -25,10 +25,10 @@ for tool in flake8 isort; do
 done
 
 echo "pre-push: flake8"
-"$PYTHON" -m flake8 swindl examples tools || fail "flake8 found problems"
+"$PYTHON" -m flake8 swindl examples tools benchmarks || fail "flake8 found problems"
 
 echo "pre-push: isort"
-"$PYTHON" -m isort --check-only --diff swindl examples tools ||
+"$PYTHON" -m isort --check-only --diff swindl examples tools benchmarks ||
     fail "imports not sorted (isort swindl examples tools)"
 
 echo "pre-push: tests"

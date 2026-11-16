@@ -28,7 +28,6 @@ import os
 import threading
 from collections import OrderedDict
 from contextlib import contextmanager
-from copy import deepcopy
 
 from sil.index import Index
 from sil.indexfield import IndexField
@@ -213,7 +212,12 @@ class Indexes:
                 self._commit_if_immediate()
 
     def _remember(self, qid, index_values):
-        self._indexed[qid] = deepcopy(index_values)
+        # index values are plain values or lists of them: copying the lists is enough
+        # (a deepcopy took 6% of a bulk load)
+        self._indexed[qid] = {
+            name: list(value) if isinstance(value, list) else value
+            for name, value in index_values.items()
+        }
         self._indexed.move_to_end(qid)
         while len(self._indexed) > INDEXED_CACHE_SIZE:
             self._indexed.popitem(last=False)
