@@ -294,6 +294,54 @@ with store.transaction():              # with the application's own data, or nei
 A record deleted in all its prefixes, or in all its sets, is deleted (`tombstone`), as in
 OaiJazz; so a record deleted with its sets and added again without them stays deleted.
 
+### The provider
+
+`OaiProvider` answers OAI-PMH 2.0 requests for an `Oai`, as meresco-oai did: the same
+XML, error codes and messages, and resumption tokens (`m<prefix>|c<stamp>|f<from>|u<until>|s<set>|p`).
+It does not depend on a web framework; the application's route passes the arguments:
+
+```python
+from swindl.oai.provider import CLIENT_HEADER, OaiProvider
+
+provider = OaiProvider(
+    oai,
+    metadata=lambda record, prefix: stored_xml(record.identifier, prefix),
+    name="Example", admin_email="beheer@example.org",
+    repository_identifier="example.org", identifier_prefix="oai:example.org:",
+    batch_size=200, supports_x_wait=True,
+)
+
+async def oai_endpoint(request):
+    response = await provider.handle(
+        list(request.query_params.multi_items()),
+        base_url=str(request.url.replace(query="")),
+        client=request.headers.get(CLIENT_HEADER),
+    )
+    return Response(response.body, status_code=response.status,
+                    media_type=response.content_type)
+```
+
+| | |
+|---|---|
+| `metadata(record, prefix)` | the metadata of a record in prefix: an lxml element or XML text (`None`: empty) |
+| `about(record, prefix)` | XML text for `<about>` (provenance), or `None` |
+| `identifier_prefix` | put before the identifiers shown, taken off those asked for |
+| `repository_identifier`, `descriptions`, `watermark` | Identify's oai-identifier description, more descriptions, a comment after `<OAI-PMH>` |
+| `batch_size` | records per part (default 200) |
+| `supports_x_wait`, `max_waiting` | x-wait, below (default off; at most 100 waiting) |
+
+`provider.respond(arguments, base_url)` answers without waiting (for tests, or without
+x-wait).
+
+**x-wait.** A `ListRecords` or `ListIdentifiers` with `x-wait=True` that finds nothing
+waits until a change in its prefix (and set) is stored, then answers; with x-wait the
+last part of a list has a resumption token too, so a harvester goes on exactly where it
+was. One request per client waits (the `X-Meresco-Oai-Client-Identifier` header): a new
+request of the same client ends the waiting one with `204 No Content`, and above
+`max_waiting` a random one is ended so. Requests wake up after the transaction of the
+change, when it is searchable: the store needs `Commit(immediate=True)` or
+`Commit(on_search=True)` (else `ValueError`).
+
 ## Reindexing
 
 `store.reindex(models)` empties the indexes and indexes every object of the given models

@@ -189,6 +189,12 @@ class Store(object):
                 self._index(changes)
                 self._tell_listeners(changes)
 
+    @property
+    def sees_changes_at_once(self):
+        """Whether a search finds a change as soon as its transaction is done:
+        Commit(immediate=True) or Commit(on_search=True)."""
+        return self._indexes.sees_changes_at_once
+
     def on_transaction(self, listener):
         """listener(changes) is called after every transaction that stored something,
         when its changes are in the files and the index: changes maps the qid of each

@@ -91,6 +91,7 @@ class Indexes:
         self._path = path
         self._immediate = commit.immediate
         self.on_search = commit.on_search
+        self.sees_changes_at_once = commit.immediate or commit.on_search
         # held while changing and committing: Store passes its own lock, so a commit
         # never empties the pending log in the middle of a transaction
         self._lock = lock or threading.RLock()

@@ -18,7 +18,9 @@ in from a web form. MIT licensed. Maintained by Seecr (Johan Jonkers, Thijs Jans
   (query text plus exact terms)
 - `swindl/oai/` – OAI-PMH: `repository.py` (`Oai`, `OaiRecord`, `OaiRepository`:
   OaiJazz's administration in the store; keep its semantics, they are what meresco
-  clients got)
+  clients got), `provider.py` (`OaiProvider`: meresco-oai's XML, errors and tokens; x-wait
+  wakes requests from `Store.on_transaction` via `loop.call_soon_threadsafe`, with a
+  change counter so a change between select and wait is not missed)
 - `swindl/check.py` – `swindl-check`: index vs files, crash leftovers, dangling
   references. Only reads (no Store, no recovery); keep it that way.
 - `site/` – the website of swindl, sjdbl and sil (Hugo; pages and PDFs made from the
