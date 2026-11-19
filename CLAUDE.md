@@ -16,6 +16,9 @@ in from a web form. MIT licensed. Maintained by Seecr (Johan Jonkers, Thijs Jans
 - `swindl/store/indexes.py` – `Indexes` (one sil `Index` per model with an `INDEX`; does
   the commits itself), `Commit` (when changes become searchable), `PendingLog`, `Query`
   (query text plus exact terms)
+- `swindl/oai/` – OAI-PMH: `repository.py` (`Oai`, `OaiRecord`, `OaiRepository`:
+  OaiJazz's administration in the store; keep its semantics, they are what meresco
+  clients got)
 - `swindl/check.py` – `swindl-check`: index vs files, crash leftovers, dangling
   references. Only reads (no Store, no recovery); keep it that way.
 - `site/` – the website of swindl, sjdbl and sil (Hugo; pages and PDFs made from the

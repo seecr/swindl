@@ -18,6 +18,7 @@ PYTHONPATH=. python examples/webadapter.py   # forms: converting, checking, erro
 - [Transactions](#transactions)
 - [After a crash](#after-a-crash)
 - [Searching](#searching)
+- [OAI-PMH](#oai-pmh)
 - [Reindexing](#reindexing)
 - [Checking: swindl-check](#checking-swindl-check)
 - [Forms: the WebAdapter](#forms-the-webadapter)
@@ -173,6 +174,16 @@ with store.transaction():
         store.put(store.get(order.qid))
 ```
 
+To act on changes once they are done (stored and indexed), register a listener; it gets
+the changes of every transaction (qid to the object, or `None` for a delete):
+
+```python
+store.on_transaction(lambda changes: print(sorted(changes)))
+```
+
+It runs in the thread of the transaction, with the store's lock held: keep it short
+(wake up something). An exception in it is logged; the transaction stays done.
+
 ## After a crash
 
 The files are the truth and the index is derived from them, so swindl makes sure of two
@@ -250,6 +261,38 @@ order in which the objects were indexed. With a query and no sort, the best matc
 
 `query`, `find_one` and `find_by_field` do **not** leave out archived objects; `list` does. Add
 `filters={"__archived__": "False"}` to a query that should not show them.
+
+## OAI-PMH
+
+`swindl.oai` keeps the OAI-PMH administration of a repository in the store, as
+meresco-oai's OaiJazz did: per identifier the metadata prefixes and sets it is in, those
+it is deleted in, and a stamp (microseconds, unique, increasing) for every change. Add
+`swindl.oai.MODELS` to the store's models; one store can hold several repositories.
+
+```python
+from swindl.oai import MODELS, Oai
+
+store = Store(path, MODELS + [Article])
+oai = Oai(store, "full", always_delete_in_prefixes=["didl"])
+
+with store.transaction():              # with the application's own data, or neither
+    store.put(article)
+    oai.add(article.identifier, prefixes=["didl", "oai_dc"], sets=["genre:zuyd"])
+```
+
+| | |
+|---|---|
+| `oai.add(identifier, prefixes, sets=())` | in these prefixes and sets (besides those it was in), no longer deleted in them; a set `a:b` is in `a` too |
+| `oai.delete(identifier, prefixes=(), sets=())` | deleted in all its prefixes and sets, and in `always_delete_in_prefixes` and those given (also when it was not in them) |
+| `oai.delete_in_prefixes(identifier, prefixes)` | deleted in these prefixes only |
+| `oai.delete_in_sets(identifier, sets)` | deleted in these sets only; not standard OAI-PMH, needs `Oai(..., delete_in_sets=True)` |
+| `oai.update_format(prefix, schema, namespace)`, `oai.update_set(spec, name)` | the schema and namespace of a prefix, the name of a set |
+| `oai.get(identifier)` | its `OaiRecord` (`prefixes`, `deleted_prefixes`, `sets`, `deleted_sets`, `tombstone`, `stamp`, `datestamp`), or `None` |
+| `oai.select(prefix, set=None, continue_after=0, from_=None, until=None, size=200)` | `(records, more)`: the records of a list, in the order of their stamps |
+| `oai.formats`, `oai.sets`, `oai.earliest_stamp()` | every prefix and set used, the first stamp |
+
+A record deleted in all its prefixes, or in all its sets, is deleted (`tombstone`), as in
+OaiJazz; so a record deleted with its sets and added again without them stays deleted.
 
 ## Reindexing
 

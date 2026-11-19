@@ -103,6 +103,7 @@ class Store(object):
         )
         self._tx = None  # qid -> object, or None for a delete, in transaction()
         self._tx_depth = 0
+        self._listeners = []  # called after every transaction, see on_transaction
         self._models = {}
         for model in models:
             if not issubclass(model, Base):
@@ -186,6 +187,25 @@ class Store(object):
             if outermost:
                 changes, self._tx = self._tx, None
                 self._index(changes)
+                self._tell_listeners(changes)
+
+    def on_transaction(self, listener):
+        """listener(changes) is called after every transaction that stored something,
+        when its changes are in the files and the index: changes maps the qid of each
+        object put to the object, of each object deleted to None. Called with the
+        store's lock held, in the thread of the transaction: keep it short (e.g. wake
+        up waiting requests). An exception in a listener is logged; the transaction
+        stays done."""
+        self._listeners.append(listener)
+
+    def _tell_listeners(self, changes):
+        if not changes:
+            return
+        for listener in self._listeners:
+            try:
+                listener(changes)
+            except Exception:
+                logger.exception(f"Listener {listener!r} failed")
 
     def _index(self, changes):
         with self._indexes.deferred():

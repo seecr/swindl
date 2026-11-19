@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `swindl.oai`: OAI-PMH administration in the store (`Oai`, `OaiRecord`), as
+  meresco-oai's OaiJazz: prefixes, hierarchical sets, deletes (in prefixes, in sets,
+  `always_delete_in_prefixes`), unique increasing stamps, `select` for lists. See
+  "OAI-PMH" in `doc/reference.md`.
+- `Store.on_transaction(listener)`: called with the changes after every transaction.
+
 ## 3.0.0 (2026-11-16)
 
 Crash-safe transactions over files and index. Needs sjdbl 0.4.0 and sil 3.2.0.
