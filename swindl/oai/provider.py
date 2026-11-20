@@ -339,7 +339,8 @@ class OaiProvider:
                 raise OaiError("noMetadataFormats")
             formats = {p: formats.get(p, {}) for p in sorted(prefixes)}
         parts = ["<ListMetadataFormats>"]
-        for prefix, info in formats.items():
+        # sorted as meresco did: on (prefix, schema, namespace)
+        for prefix, info in sorted(formats.items()):
             parts.append(
                 "<metadataFormat>"
                 f"<metadataPrefix>{escape(prefix)}</metadataPrefix>"

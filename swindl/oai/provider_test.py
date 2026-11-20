@@ -265,6 +265,18 @@ def test_deleted_sets_unmarked_with_delete_in_sets_false(store):
     assert xpath(tree, "//oai:setSpec/text()") == ["avans", "zuyd"]
 
 
+def test_formats_are_sorted(store):
+    oai = Oai(store, "full")
+    oai.add("id:1", prefixes=["zz", "didl", "oai_openaire", "oai_dc"])
+    tree = ask(provider_for(oai), verb="ListMetadataFormats")
+    assert xpath(tree, "//oai:metadataPrefix/text()") == [
+        "didl",
+        "oai_dc",
+        "oai_openaire",
+        "zz",
+    ]
+
+
 def test_about(store):
     oai = Oai(store, "full")
     oai.add("id:1", prefixes=["didl"])
