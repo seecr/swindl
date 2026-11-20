@@ -176,6 +176,21 @@ async def test_parser(provider_side, consumer):
         assert record.metadata.text == text
 
 
+async def test_after_an_error_one_request_without_x_wait(provider_side, consumer):
+    """An x-wait request in a quiet repository does not answer, so it would never
+    clear an error: after an error the next request is without x-wait."""
+    oai, provider = provider_side
+    d = downloader(consumer, provider, x_wait=True)
+    assert "x-wait=True" in d.request_url()
+    d._save_error("HTTP 503")
+    assert "x-wait" not in d.request_url()
+    again = downloader(consumer, provider, x_wait=True)  # also after a restart
+    assert "x-wait" not in again.request_url()
+    assert await again.step()  # noRecordsMatch: answered at once
+    assert again.state.error == ""
+    assert "x-wait=True" in again.request_url()
+
+
 async def test_x_wait_follows_changes(provider_side, consumer):
     oai, provider = provider_side
     oai.add("id:0", prefixes=["document"])

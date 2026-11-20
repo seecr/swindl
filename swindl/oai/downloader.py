@@ -128,6 +128,9 @@ class OaiDownloader:
         self._from = from_
         self._process = process
         self._x_wait = x_wait
+        # after an error the next request is without x-wait: it answers at once, so
+        # the error is cleared (an x-wait request in a quiet repository never answers)
+        self._after_error = bool(self._load_state_error(store, name))
         self._interval = interval
         self._retry_delay = retry_delay
         self._headers = {"User-Agent": USER_AGENT, **(headers or {})}
@@ -206,7 +209,7 @@ class OaiDownloader:
                 args.append(("set", self._set))
             if from_ := (self.state.from_ or self._from):
                 args.append(("from", from_))
-        if self._x_wait:
+        if self._waits():
             args.append(("x-wait", "True"))
         query = urlencode(self._base_args + [("verb", "ListRecords")] + args)
         return urlunparse(self._url._replace(query=query))
@@ -223,7 +226,7 @@ class OaiDownloader:
 
     async def _get(self, url):
         headers = dict(self._headers)
-        if self._x_wait:
+        if self._waits():
             headers[CLIENT_HEADER] = self.state.client
         if asyncio.iscoroutinefunction(self._fetch):
             return await self._fetch(url, headers)
@@ -249,13 +252,24 @@ class OaiDownloader:
                     self._process(records)
                 self.state.update(**changes)
                 self._store.put(self.state)
+            self._after_error = False
         except BaseException:
             # the transaction is undone; so is the position (in memory too): the
             # same part is asked for again
             self.state = self._load_state()
             raise
 
+    def _waits(self):
+        return self._x_wait and not self._after_error
+
+    @staticmethod
+    def _load_state_error(store, name):
+        state_id = hashlib.sha256(name.encode()).hexdigest()[:40]
+        state = store.get(f"OaiDownloadState:{state_id}")
+        return state.error if state is not None else ""
+
     def _save_error(self, message):
+        self._after_error = True
         try:
             with self._store.transaction():
                 self.state.update(error=message, last_request=_now())
