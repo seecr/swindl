@@ -252,6 +252,30 @@ def test_deleted_in_a_set_shows_with_delete_in_sets(store):
     assert xpath(tree, "//oai:header/@status") == []
 
 
+def test_deleted_sets_unmarked_with_delete_in_sets_false(store):
+    """meresco's OaiPmh(deleteInSets=False) on an OaiJazz(deleteInSets=True): the
+    record is deleted for the set, its setSpecs are not marked."""
+    oai = Oai(store, "discover", delete_in_sets=True)
+    oai.add("id:1", prefixes=["didl"], sets=["zuyd", "avans"])
+    oai.delete_in_sets("id:1", ["zuyd"])
+    provider = provider_for(oai, delete_in_sets=False)
+    tree = ask(provider, verb="ListRecords", metadataPrefix="didl", set="zuyd")
+    assert xpath(tree, "//oai:header/@status") == ["deleted"]
+    assert xpath(tree, "//oai:setSpec[@status]") == []
+    assert xpath(tree, "//oai:setSpec/text()") == ["avans", "zuyd"]
+
+
+def test_about(store):
+    oai = Oai(store, "full")
+    oai.add("id:1", prefixes=["didl"])
+    oai.add("id:2", prefixes=["didl"])
+    abouts = {"id:1": "", "id:2": None}
+    provider = provider_for(oai, about=lambda record, prefix: abouts[record.identifier])
+    tree = ask(provider, verb="ListRecords", metadataPrefix="didl")
+    records = xpath(tree, "//oai:record")
+    assert [len(xpath(r, "oai:about")) for r in records] == [1, 0]
+
+
 # --- x-wait ---
 
 

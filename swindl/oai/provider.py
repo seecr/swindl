@@ -116,7 +116,9 @@ class OaiProvider:
     shown (e.g. "oai:hbokennisbank.nl:") and taken off those asked for;
     repository_identifier gives Identify its oai-identifier description.
     descriptions: more XML texts for Identify; watermark: XML text after the
-    OAI-PMH element's start (a comment, as meresco's oaiWatermark)."""
+    OAI-PMH element's start (a comment, as meresco's oaiWatermark). about may give
+    "" (an empty <about>, as meresco) or None (no <about>). delete_in_sets: mark the
+    sets a record is deleted in (status="deleted"); default as the Oai."""
 
     def __init__(
         self,
@@ -133,6 +135,7 @@ class OaiProvider:
         supports_x_wait=False,
         max_waiting=MAX_WAITING,
         store=None,
+        delete_in_sets=None,
     ):
         self._oai = oai
         self._metadata = metadata
@@ -143,6 +146,11 @@ class OaiProvider:
         self._identifier_prefix = identifier_prefix
         self._descriptions = list(descriptions)
         self._watermark = watermark
+        # setSpecs a record is deleted in get status="deleted" in its header (as
+        # meresco's OaiPmh(deleteInSets=...)); default: when the Oai deletes in sets
+        self._delete_in_sets = (
+            oai.supports_delete_in_sets if delete_in_sets is None else delete_in_sets
+        )
         self._batch_size = batch_size
         self.supports_x_wait = supports_x_wait
         self._max_waiting = max_waiting
@@ -457,7 +465,7 @@ class OaiProvider:
 
     def _header_xml(self, record, prefix, requested_sets):
         deleted = record.is_deleted_for(prefix, requested_sets)
-        deleted_sets = record.deleted_sets if self._oai.supports_delete_in_sets else ()
+        deleted_sets = record.deleted_sets if self._delete_in_sets else ()
         set_specs = "".join(
             f"<setSpec{_DELETED if spec in deleted_sets else ''}>"
             f"{escape(spec)}</setSpec>"
@@ -477,7 +485,9 @@ class OaiProvider:
             parts.append(
                 f"<metadata>{_text(self._metadata(record, prefix))}</metadata>"
             )
-            if self._about is not None and (about := self._about(record, prefix)):
+            if self._about is not None and (
+                (about := self._about(record, prefix)) is not None
+            ):
                 parts.append(f"<about>{_text(about)}</about>")
         parts.append("</record>")
         return "".join(parts)

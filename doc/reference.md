@@ -324,10 +324,11 @@ async def oai_endpoint(request):
 | | |
 |---|---|
 | `metadata(record, prefix)` | the metadata of a record in prefix: an lxml element or XML text (`None`: empty) |
-| `about(record, prefix)` | XML text for `<about>` (provenance), or `None` |
+| `about(record, prefix)` | XML text for `<about>` (provenance); `""` gives an empty `<about>` (as meresco), `None` none |
 | `identifier_prefix` | put before the identifiers shown, taken off those asked for |
 | `repository_identifier`, `descriptions`, `watermark` | Identify's oai-identifier description, more descriptions, a comment after `<OAI-PMH>` |
 | `batch_size` | records per part (default 200) |
+| `delete_in_sets` | mark the sets a record is deleted in with `status="deleted"` in its header (meresco's `OaiPmh(deleteInSets=...)`); default: when the `Oai` deletes in sets |
 | `supports_x_wait`, `max_waiting` | x-wait, below (default off; at most 100 waiting) |
 
 `provider.respond(arguments, base_url)` answers without waiting (for tests, or without

@@ -10,7 +10,8 @@
   "OAI-PMH" in `doc/reference.md`.
 - `swindl.oai.provider.OaiProvider`: OAI-PMH 2.0 provider for an `Oai`, as
   meresco-oai answered (XML, errors, resumption tokens), with x-wait; independent of a
-  web framework.
+  web framework. `delete_in_sets=False` leaves the setSpecs unmarked (as meresco's
+  OaiPmh could); `about` may give `""` for an empty `<about>`.
 - `swindl.oai.OaiDownloader`: harvests an OAI-PMH repository into the store, each part
   with its position in one transaction; x-wait or an interval; a parser of its own
   (`parser=`, e.g. `huge_tree`).
