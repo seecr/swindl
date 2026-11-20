@@ -15,6 +15,20 @@
 application's Store), OaiProvider (answers OAI-PMH requests) and OaiDownloader
 (harvests another OAI-PMH repository). See "OAI-PMH" in doc/reference.md."""
 
+from .downloader import MODELS as DOWNLOADER_MODELS
+from .downloader import OaiDownloader, OaiDownloadState, Record
+from .provider import OaiProvider, OaiResponse
 from .repository import MODELS, Oai, OaiRecord, OaiRepository
 
-__all__ = ["MODELS", "Oai", "OaiRecord", "OaiRepository"]
+__all__ = [
+    "DOWNLOADER_MODELS",
+    "MODELS",
+    "Oai",
+    "OaiDownloader",
+    "OaiDownloadState",
+    "OaiProvider",
+    "OaiRecord",
+    "OaiRepository",
+    "OaiResponse",
+    "Record",
+]

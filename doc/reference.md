@@ -342,6 +342,47 @@ request of the same client ends the waiting one with `204 No Content`, and above
 change, when it is searchable: the store needs `Commit(immediate=True)` or
 `Commit(on_search=True)` (else `ValueError`).
 
+### The downloader
+
+`OaiDownloader` harvests another OAI-PMH repository into the application's store, as
+meresco's OaiDownloadProcessor did: part after part with `ListRecords`. Each part goes to
+`process(records)` in a store transaction, together with the position after it; so a
+part and its position are stored together, or neither, and after an error or a crash the
+same part comes again (`process` must not mind getting a record twice).
+
+```python
+from swindl.oai import DOWNLOADER_MODELS, OaiDownloader
+
+store = Store(path, DOWNLOADER_MODELS + [RichRecord])
+
+def process(records):                 # in a transaction of store
+    for record in records:
+        rich = RichRecord.for_identifier(store, record.identifier)
+        if record.deleted:
+            store.delete(rich)
+        else:
+            rich.update(data=convert(record.metadata))
+            store.put(rich)
+
+downloader = OaiDownloader(store, "conversion", "http://conversion:8000/oai",
+                           metadata_prefix="document", process=process, x_wait=True)
+downloader.start()                    # an asyncio task (in the app's lifespan)
+await downloader.stop()
+```
+
+A `Record` has `identifier`, `datestamp`, `deleted`, `sets`, `metadata` (the element in
+`<metadata>`), `about` (the elements in the `<about>`s) and `element` (the `<record>`).
+
+| | |
+|---|---|
+| `x_wait=True` | the repository holds the request until there is something new (swindl's or meresco's provider with x-wait): changes come in at once. Sends a client identifier of its own (kept in the state) |
+| without `x_wait` | a finished list is asked for again after `interval` seconds (default 60), from the `responseDate` of the request that began it |
+| `set`, `from_`, `headers` | the set to harvest, the `from` of the first list, more HTTP headers |
+| `retry_delay` | seconds to wait after an error (default 30); the error is in `downloader.state.error` |
+| `downloader.state` | `OaiDownloadState`: `resumption_token`, `from_`, `records` (count), `last_request`, `error` |
+| `downloader.reset()` | harvest everything again (an explicit step) |
+| `fetch(url, headers)` | the HTTP GET, `(status, body)`; default urllib in a thread. For tests, an async function (e.g. calling an `OaiProvider` directly) |
+
 ## Reindexing
 
 `store.reindex(models)` empties the indexes and indexes every object of the given models

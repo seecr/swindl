@@ -11,6 +11,8 @@
 - `swindl.oai.provider.OaiProvider`: OAI-PMH 2.0 provider for an `Oai`, as
   meresco-oai answered (XML, errors, resumption tokens), with x-wait; independent of a
   web framework.
+- `swindl.oai.OaiDownloader`: harvests an OAI-PMH repository into the store, each part
+  with its position in one transaction; x-wait or an interval.
 - `Store.on_transaction(listener)`: called with the changes after every transaction.
 - `Store.sees_changes_at_once`: whether a search finds a change as soon as its
   transaction is done (`Commit(immediate=True)` or `Commit(on_search=True)`).
