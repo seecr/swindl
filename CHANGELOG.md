@@ -12,7 +12,8 @@
   meresco-oai answered (XML, errors, resumption tokens), with x-wait; independent of a
   web framework.
 - `swindl.oai.OaiDownloader`: harvests an OAI-PMH repository into the store, each part
-  with its position in one transaction; x-wait or an interval.
+  with its position in one transaction; x-wait or an interval; a parser of its own
+  (`parser=`, e.g. `huge_tree`).
 - `Store.on_transaction(listener)`: called with the changes after every transaction.
 - `Store.sees_changes_at_once`: whether a search finds a change as soon as its
   transaction is done (`Commit(immediate=True)` or `Commit(on_search=True)`).

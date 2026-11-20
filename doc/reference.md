@@ -382,6 +382,7 @@ A `Record` has `identifier`, `datestamp`, `deleted`, `sets`, `metadata` (the ele
 | `downloader.state` | `OaiDownloadState`: `resumption_token`, `from_`, `records` (count), `last_request`, `error` |
 | `downloader.reset()` | harvest everything again (an explicit step) |
 | `fetch(url, headers)` | the HTTP GET, `(status, body)`; default urllib in a thread. For tests, an async function (e.g. calling an `OaiProvider` directly) |
+| `parser` | the lxml `XMLParser` for the responses, e.g. `XMLParser(huge_tree=True)` for very large records |
 
 ## Reindexing
 

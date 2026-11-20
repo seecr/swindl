@@ -112,10 +112,13 @@ class OaiDownloader:
         retry_delay=30,
         headers=None,
         fetch=None,
+        parser=None,
     ):
         """process(records): store what the records mean; called in a transaction
         of store. fetch(url, headers) -> (status, body): the HTTP GET, in a thread
-        (default urllib); for tests an async function may be given."""
+        (default urllib); for tests an async function may be given. parser: the
+        lxml XMLParser for the responses (e.g. huge_tree=True for very large
+        records)."""
         self._store = store
         self.name = name
         self._url = urlparse(url)
@@ -129,6 +132,7 @@ class OaiDownloader:
         self._retry_delay = retry_delay
         self._headers = {"User-Agent": USER_AGENT, **(headers or {})}
         self._fetch = fetch or fetch_with_urllib
+        self._parser = parser
         self._task = None
         self.state = self._load_state()
 
@@ -171,7 +175,7 @@ class OaiDownloader:
         if status != 200:
             raise OaiDownloadError(f"{url}: HTTP {status}")
         try:
-            tree = etree.parse(BytesIO(body))
+            tree = etree.parse(BytesIO(body), self._parser)
         except etree.XMLSyntaxError as e:
             raise OaiDownloadError(f"{url}: no XML: {e}") from e
         response_date = _first(tree, "/oai:OAI-PMH/oai:responseDate/text()") or ""

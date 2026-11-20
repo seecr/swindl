@@ -147,6 +147,35 @@ async def test_nothing_to_harvest(provider_side, consumer):
     assert copies(consumer) == []
 
 
+async def test_parser(provider_side, consumer):
+    """A parser of one's own, e.g. to drop whitespace between elements."""
+    from lxml import etree
+
+    oai, _ = provider_side
+    oai.add("id:0", prefixes=["document"])
+    provider = OaiProvider(
+        oai,
+        metadata=lambda record, prefix: '<a xmlns="urn:test">\n  <b>x</b>\n</a>',
+        name="Provider",
+        admin_email="beheer@example.org",
+    )
+    for parser, text in [
+        (None, "\n  "),
+        (etree.XMLParser(remove_blank_text=True, huge_tree=True), None),
+    ]:
+        seen = []
+        d = downloader(
+            consumer,
+            provider,
+            process=lambda records: seen.extend(records),
+            parser=parser,
+        )
+        d.reset()
+        await d.step()
+        (record,) = seen
+        assert record.metadata.text == text
+
+
 async def test_x_wait_follows_changes(provider_side, consumer):
     oai, provider = provider_side
     oai.add("id:0", prefixes=["document"])
