@@ -180,6 +180,7 @@ async def test_after_an_error_one_request_without_x_wait(provider_side, consumer
     """An x-wait request in a quiet repository does not answer, so it would never
     clear an error: after an error the next request is without x-wait."""
     oai, provider = provider_side
+    oai.update_format("document", "", "urn:test")  # an empty repository
     d = downloader(consumer, provider, x_wait=True)
     assert "x-wait=True" in d.request_url()
     d._save_error("HTTP 503")
