@@ -57,7 +57,8 @@ PYTHONPATH=. python tools/crashtest.py --rounds 500   # before a release of the 
 ```
 
 `env/` is the virtualenv (see the seecr-python rebuild-venv skill), with
-`requirements-dev.txt` (flake8, isort); sjdbl and sil come from Seecr's devpi. To work
+`requirements-dev.txt` (flake8, isort); sjdbl comes from Seecr's devpi, sil is
+`seecr-sil` on PyPI (through devpi's mirror; the import stays `sil`). To work
 against a local sjdbl checkout: `pip install -e ../sjdbl`.
 
 ## Design decisions (deliberate, don't re-propose)

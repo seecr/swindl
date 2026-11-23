@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Needs sil as `seecr-sil >= 3.4.0` (sil is on PyPI under that name; the import stays
+  `sil`). In an existing virtualenv, `pip uninstall sil` first: both install the `sil`
+  package.
+
 ## 3.1.0 (2026-11-20)
 
 ### Added
