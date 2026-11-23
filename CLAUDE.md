@@ -57,7 +57,7 @@ PYTHONPATH=. python tools/crashtest.py --rounds 500   # before a release of the 
 ```
 
 `env/` is the virtualenv (see the seecr-python rebuild-venv skill); the dev tools
-(flake8, isort, pytest) are the `dev` dependency group in `pyproject.toml`:
+(flake8, isort) are the `dev` dependency group in `pyproject.toml`:
 `env/bin/pip install -e . --group dev`. All dependencies are on PyPI (sil as
 `seecr-sil`; the import stays `sil`), reached through Seecr's devpi. To work against a
 local sjdbl checkout: `pip install -e ../sjdbl`.

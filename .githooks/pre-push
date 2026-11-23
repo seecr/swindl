@@ -4,7 +4,7 @@
 #
 #     git config core.hooksPath .githooks
 #
-# flake8, isort and pytest come from the dev dependency group in pyproject.toml
+# flake8 and isort come from the dev dependency group in pyproject.toml
 # (pip install -e . --group dev). Push anyway (e.g. work in progress on a branch): git push --no-verify
 
 cd "$(git rev-parse --show-toplevel)" || exit 1
@@ -19,7 +19,7 @@ fail() {
     exit 1
 }
 
-for tool in flake8 isort pytest; do
+for tool in flake8 isort; do
     "$PYTHON" -m $tool --version > /dev/null 2>&1 ||
         fail "$tool is missing: $PYTHON -m pip install -e . --group dev"
 done

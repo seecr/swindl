@@ -9,9 +9,9 @@
   package.
 - Needs sjdbl >= 0.6.0 and seecr-stdlib >= 0.7.0 (both on PyPI). lxml and tantivy,
   which swindl imports itself, are named as dependencies (they came with sjdbl and sil).
-- pytest, pytest-asyncio, pytest-xdist and setuptools-scm are no longer installed with
-  swindl (only the tests and the build need them). The dev tools (flake8, isort, pytest)
-  are the `dev` dependency group in `pyproject.toml` (`pip install -e . --group dev`);
+- setuptools-scm is no longer installed with swindl (it is only needed to build it);
+  pytest, pytest-asyncio and pytest-xdist stay (the tests are part of the package). The
+  dev tools (flake8, isort) are the `dev` dependency group in `pyproject.toml` (`pip install -e . --group dev`);
   `requirements-dev.txt` is gone.
 - The package metadata names the license as an SPDX expression (`MIT`).
 
