@@ -7,6 +7,8 @@
 - Needs sil as `seecr-sil >= 3.4.0` (sil is on PyPI under that name; the import stays
   `sil`). In an existing virtualenv, `pip uninstall sil` first: both install the `sil`
   package.
+- Needs sjdbl >= 0.6.0 and seecr-stdlib >= 0.7.0 (both on PyPI). lxml and tantivy,
+  which swindl imports itself, are named as dependencies (they came with sjdbl and sil).
 
 ## 3.1.0 (2026-11-20)
 
