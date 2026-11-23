@@ -56,10 +56,16 @@ pytest examples/collection/swindl_collection    # needs swl: pip install -e exam
 PYTHONPATH=. python tools/crashtest.py --rounds 500   # before a release of the commit path
 ```
 
-`env/` is the virtualenv (see the seecr-python rebuild-venv skill), with
-`requirements-dev.txt` (flake8, isort); sjdbl comes from Seecr's devpi, sil is
-`seecr-sil` on PyPI (through devpi's mirror; the import stays `sil`). To work
-against a local sjdbl checkout: `pip install -e ../sjdbl`.
+`env/` is the virtualenv (see the seecr-python rebuild-venv skill); the dev tools
+(flake8, isort, pytest) are the `dev` dependency group in `pyproject.toml`:
+`env/bin/pip install -e . --group dev`. All dependencies are on PyPI (sil as
+`seecr-sil`; the import stays `sil`), reached through Seecr's devpi. To work against a
+local sjdbl checkout: `pip install -e ../sjdbl`.
+
+Releasing: give the version a `## X.Y.Z (date)` section in `CHANGELOG.md`, then push
+the tag `X.Y.Z` to GitHub; `.github/workflows/publish.yml` builds it, uploads it to
+PyPI (trusted publishing) and makes the GitHub release. The tag is the version
+(setuptools-scm).
 
 ## Design decisions (deliberate, don't re-propose)
 

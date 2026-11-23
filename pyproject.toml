@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools >= 84.2.1", "setuptools-scm >= 10.3.4"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,27 +8,49 @@ authors = [
     {name = "Thijs Janssen", email = "thijs@seecr.nl"},
     {name = "Johan Jonkers", email = "johan@seecr.nl"},
 ]
-description = "Seecr Web Index and Database Lib combines swl, sil and sdbl"
+description = "Seecr Web Index and Database Lib: objects in JSON files, searchable, with crash-safe transactions"
 readme = "README.md"
 requires-python = ">=3.11"
-keywords = ["swl", "sil", "sdbl", "seecr"]
-license = {file = "LICENSE"}
+keywords = ["storage", "search", "index", "json", "transactions", "oai-pmh", "forms", "seecr"]
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
-    "License :: OSI Approved :: MIT License",
+    "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: POSIX",
+    "Intended Audience :: Developers",
+    "Topic :: Database",
+    "Topic :: Text Processing :: Indexing",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
     "lxml >= 6.1.3, < 7",
-    "pytest >= 9.2.0, < 10",
-    "pytest-asyncio >= 1.5.0, < 2",
-    "pytest-xdist >= 3.8.0, < 4",
     "seecr-sil >= 3.4.0, < 4",
     "seecr-stdlib >= 0.7.0, < 1",
-    "setuptools-scm >= 10.3.4, < 11",
     "sjdbl >= 0.6.0, < 1",
     "tantivy >= 0.27.0, < 1",
 ]
 dynamic = ["version"]
+
+[project.urls]
+Documentation = "https://github.com/seecr/swindl/blob/master/doc/reference.md"
+Source = "https://github.com/seecr/swindl"
+Issues = "https://github.com/seecr/swindl/issues"
+Changelog = "https://github.com/seecr/swindl/blob/master/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "flake8 >= 7.5.0, < 8",
+    "isort >= 9.0.2, < 10",
+    "pytest >= 9.2.0, < 10",
+    "pytest-asyncio >= 1.5.0, < 2",
+    "pytest-xdist >= 3.8.0, < 4",
+]
 
 [project.scripts]
 swindl-load-sdbl-dump = "swindl.store.dump:main"

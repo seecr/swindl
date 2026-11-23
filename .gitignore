@@ -1,4 +1,5 @@
 env/
+swindl/_version.py
 *.egg-info/
 dist/
 build/

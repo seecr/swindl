@@ -26,12 +26,19 @@ Crash safe: a transaction is in the files completely or not at all, and the inde
 catches up when the store is opened again. `swindl-check` tells whether the index
 matches the files.
 
-- `doc/reference.md`: the reference.
-- `doc/guarantees.md`: what is promised, what not, the limits, backups.
-- `doc/webadapter.md`: the WebAdapter.
-- `examples/`: runnable examples (`PYTHONPATH=. python examples/store.py`), and
-  `examples/collection/`: an application to keep track of a record (or LEGO)
-  collection, built on SWL and swindl.
-- `CHANGELOG.md`: what changed, and how to upgrade.
+Install with `pip install swindl`. It needs Python 3.11 or newer; sjdbl, sil
+(`seecr-sil`) and their dependencies come with it.
 
-MIT licensed, by [Seecr](https://seecr.nl).
+- [reference](https://github.com/seecr/swindl/blob/master/doc/reference.md): everything.
+- [guarantees](https://github.com/seecr/swindl/blob/master/doc/guarantees.md): what is
+  promised, what not, the limits, backups.
+- [WebAdapter](https://github.com/seecr/swindl/blob/master/doc/webadapter.md): the
+  WebAdapter in full.
+- [examples](https://github.com/seecr/swindl/tree/master/examples): runnable examples,
+  and [examples/collection](https://github.com/seecr/swindl/tree/master/examples/collection):
+  an application to keep track of a record (or LEGO) collection, built on SWL and swindl.
+- [changelog](https://github.com/seecr/swindl/blob/master/CHANGELOG.md): what changed,
+  and how to upgrade.
+
+MIT licensed, see [LICENSE](https://github.com/seecr/swindl/blob/master/LICENSE). By
+[Seecr](https://seecr.nl).
