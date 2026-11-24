@@ -6,14 +6,15 @@
 #
 # The pages come from the documentation in the repositories: swindl (..), and sjdbl and
 # sil next to it (../../sjdbl, ../../sil, as gclone puts them; change with SJDBL_DIR=...
-# and SIL_DIR=...). The versions are the latest tags. Extra Hugo options go in
+# and SIL_DIR=...). The versions are the latest tags (not "3.4.0-2-g9276154" for a
+# checkout past a tag). Extra Hugo options go in
 # HUGO_FLAGS, e.g. `make serve HUGO_FLAGS="--bind 0.0.0.0"`.
 
 SWINDL_DIR ?= ..
 SJDBL_DIR ?= ../../sjdbl
 SIL_DIR ?= ../../sil
 
-version = $(shell git -C $(1) describe --tags 2>/dev/null || echo main)
+version = $(shell git -C $(1) describe --tags --abbrev=0 2>/dev/null || echo master)
 SWINDL_VERSION = $(call version,$(SWINDL_DIR))
 SJDBL_VERSION = $(call version,$(SJDBL_DIR))
 SIL_VERSION = $(call version,$(SIL_DIR))
