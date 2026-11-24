@@ -18,7 +18,7 @@ the same XML, the same error codes and messages, the same resumption tokens
 Independent of a web framework: the application's route gives the request's arguments
 and gets an OaiResponse (status, body):
 
-    provider = OaiProvider(oai, metadata=..., name="HBO Kennisbank", ...)
+    provider = OaiProvider(oai, metadata=..., name="Example Repository", ...)
 
     async def oai_endpoint(request):
         response = await provider.handle(
@@ -113,7 +113,7 @@ class OaiProvider:
     """metadata(record, prefix): the metadata of a record (OaiRecord) in prefix, as
     an lxml element or XML text; None leaves <metadata> empty. about(record, prefix):
     XML text for <about> (or None). identifier_prefix: put before the identifiers
-    shown (e.g. "oai:hbokennisbank.nl:") and taken off those asked for;
+    shown (e.g. "oai:example.org:") and taken off those asked for;
     repository_identifier gives Identify its oai-identifier description.
     descriptions: more XML texts for Identify; watermark: XML text after the
     OAI-PMH element's start (a comment, as meresco's oaiWatermark). about may give

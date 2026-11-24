@@ -105,7 +105,7 @@ def test_verb_errors(store):
 def test_list_records_with_parts_and_tokens(store):
     oai = Oai(store, "full")
     for nr in range(5):
-        oai.add(f"id:{nr}", prefixes=["didl"], sets=["genre:zuyd"])
+        oai.add(f"id:{nr}", prefixes=["didl"], sets=["genre:poetry"])
     provider = provider_for(oai, batch_size=2, identifier_prefix="oai:example.org:")
 
     tree = ask(provider, verb="ListRecords", metadataPrefix="didl")
@@ -114,7 +114,7 @@ def test_list_records_with_parts_and_tokens(store):
     assert xpath(tree, "//oai:record[1]/oai:metadata/t:data/text()") == ["id:0 didl"]
     assert xpath(tree, "(//oai:header)[1]/oai:setSpec/text()") == [
         "genre",
-        "genre:zuyd",
+        "genre:poetry",
     ]
     first = token(tree)
     assert first.startswith("mdidl|c") and first.endswith("|f|u|s|p")
@@ -230,10 +230,10 @@ def test_list_sets(store):
     oai = Oai(store, "full")
     provider = provider_for(oai)
     assert error(ask(provider, verb="ListSets")) == "noSetHierarchy"
-    oai.add("id:1", prefixes=["didl"], sets=["genre:zuyd"])
+    oai.add("id:1", prefixes=["didl"], sets=["genre:poetry"])
     oai.update_set("genre", "Genre")
     tree = ask(provider, verb="ListSets")
-    assert xpath(tree, "//oai:setSpec/text()") == ["genre", "genre:zuyd"]
+    assert xpath(tree, "//oai:setSpec/text()") == ["genre", "genre:poetry"]
     assert [name.text or "" for name in xpath(tree, "//oai:setName")] == ["Genre", ""]
     assert error(ask(provider, verb="ListSets", resumptionToken="x")) == (
         "badResumptionToken"
@@ -242,13 +242,13 @@ def test_list_sets(store):
 
 def test_deleted_in_a_set_shows_with_delete_in_sets(store):
     oai = Oai(store, "discover", delete_in_sets=True)
-    oai.add("id:1", prefixes=["didl"], sets=["zuyd", "avans"])
-    oai.delete_in_sets("id:1", ["zuyd"])
+    oai.add("id:1", prefixes=["didl"], sets=["poetry", "novels"])
+    oai.delete_in_sets("id:1", ["poetry"])
     provider = provider_for(oai)
-    tree = ask(provider, verb="ListRecords", metadataPrefix="didl", set="zuyd")
+    tree = ask(provider, verb="ListRecords", metadataPrefix="didl", set="poetry")
     assert xpath(tree, "//oai:header/@status") == ["deleted"]
-    assert xpath(tree, "//oai:setSpec[@status='deleted']/text()") == ["zuyd"]
-    tree = ask(provider, verb="ListRecords", metadataPrefix="didl", set="avans")
+    assert xpath(tree, "//oai:setSpec[@status='deleted']/text()") == ["poetry"]
+    tree = ask(provider, verb="ListRecords", metadataPrefix="didl", set="novels")
     assert xpath(tree, "//oai:header/@status") == []
 
 
@@ -256,13 +256,13 @@ def test_deleted_sets_unmarked_with_delete_in_sets_false(store):
     """meresco's OaiPmh(deleteInSets=False) on an OaiJazz(deleteInSets=True): the
     record is deleted for the set, its setSpecs are not marked."""
     oai = Oai(store, "discover", delete_in_sets=True)
-    oai.add("id:1", prefixes=["didl"], sets=["zuyd", "avans"])
-    oai.delete_in_sets("id:1", ["zuyd"])
+    oai.add("id:1", prefixes=["didl"], sets=["poetry", "novels"])
+    oai.delete_in_sets("id:1", ["poetry"])
     provider = provider_for(oai, delete_in_sets=False)
-    tree = ask(provider, verb="ListRecords", metadataPrefix="didl", set="zuyd")
+    tree = ask(provider, verb="ListRecords", metadataPrefix="didl", set="poetry")
     assert xpath(tree, "//oai:header/@status") == ["deleted"]
     assert xpath(tree, "//oai:setSpec[@status]") == []
-    assert xpath(tree, "//oai:setSpec/text()") == ["avans", "zuyd"]
+    assert xpath(tree, "//oai:setSpec/text()") == ["novels", "poetry"]
 
 
 def test_formats_are_sorted(store):
@@ -336,13 +336,13 @@ async def test_x_wait_with_a_set(store):
     oai = Oai(store, "full")
     provider = provider_for(oai, supports_x_wait=True)
     waiting = asyncio.create_task(
-        provider.handle(wait_args(metadataPrefix="didl", set="zuyd"), BASE, "c1")
+        provider.handle(wait_args(metadataPrefix="didl", set="poetry"), BASE, "c1")
     )
     await asyncio.sleep(0.05)
-    oai.add("id:1", prefixes=["didl"], sets=["avans"])
+    oai.add("id:1", prefixes=["didl"], sets=["novels"])
     await asyncio.sleep(0.05)
     assert not waiting.done()
-    oai.add("id:2", prefixes=["didl"], sets=["zuyd"])
+    oai.add("id:2", prefixes=["didl"], sets=["poetry"])
     response = await asyncio.wait_for(waiting, 2)
     assert xpath(etree.fromstring(response.body), "//oai:identifier/text()") == ["id:2"]
 

@@ -340,13 +340,13 @@ def test_request_url(consumer):
         "http://example.org/oai?apikey=secret",
         "didl",
         process=None,
-        set="genre:zuyd",
+        set="genre:poetry",
         from_="2026-01-01",
         x_wait=True,
     )
     assert d.request_url() == (
         "http://example.org/oai?apikey=secret&verb=ListRecords&metadataPrefix=didl"
-        "&set=genre%3Azuyd&from=2026-01-01&x-wait=True"
+        "&set=genre%3Apoetry&from=2026-01-01&x-wait=True"
     )
     d.state.update(resumption_token="mdidl|c5|f|u|s|p")
     assert d.request_url() == (

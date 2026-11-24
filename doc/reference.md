@@ -277,7 +277,7 @@ oai = Oai(store, "full", always_delete_in_prefixes=["didl"])
 
 with store.transaction():              # with the application's own data, or neither
     store.put(article)
-    oai.add(article.identifier, prefixes=["didl", "oai_dc"], sets=["genre:zuyd"])
+    oai.add(article.identifier, prefixes=["didl", "oai_dc"], sets=["genre:poetry"])
 ```
 
 | | |

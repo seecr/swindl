@@ -128,7 +128,7 @@ A `put()` or `delete()` outside a transaction is a transaction of one.
 ### When the index commits
 
 The apps use both modes: `Commit(immediate=True)` (tests, imports) and
-`Commit(immediate=False)` with sil's auto-commit (enigma, hbokb, wwft-admin servers).
+`Commit(immediate=False)` with sil's auto-commit (the servers).
 
 - Immediate: step 3 commits at once, step 4 follows.
 - Auto-commit: the qids stay in `pending.log` until the next commit. To know when that
@@ -136,7 +136,7 @@ The apps use both modes: `Commit(immediate=True)` (tests, imports) and
   without their own commit task (`commit_timeout=0`), and `Indexes` runs one task that
   commits every changed index and then clears `pending.log`. The interval stays
   `Commit.timeout`. (sil itself does not change.)
-- `Commit(timeout=0)` (no commit until shutdown, used by an isms script) keeps working:
+- `Commit(timeout=0)` (no commit until shutdown, used by scripts) keeps working:
   `shutdown()` commits and clears `pending.log`.
 
 ### Recovery, in `swindl.Store.__init__`
@@ -149,7 +149,7 @@ were redone. Nothing else is reindexed: a changed model still only reports
 
 ### Also in 3.0.0
 
-- `batch()` is removed; `transaction()` replaces it. enigma is the only app that uses
+- `batch()` is removed; `transaction()` replaces it. One app uses
   `batch()` (`store.py`, `chat.py`, `news.py`, `notifications.py`): it moves to
   `transaction()` when it upgrades. Note in "Upgrading" that a failing block now writes
   nothing (with `batch()` the files kept the puts).

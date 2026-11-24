@@ -19,7 +19,7 @@ it in the same transaction as the application's own data:
     oai = Oai(store, "full", always_delete_in_prefixes=["didl"])
     with store.transaction():
         store.put(record)
-        oai.add(record.identifier, prefixes=["didl", "oai_dc"], sets=["genre:zuyd"])
+        oai.add(record.identifier, prefixes=["didl", "oai_dc"], sets=["genre:poetry"])
 """
 
 import hashlib
@@ -39,7 +39,7 @@ STAMP_PER_SECOND = 1_000_000
 
 class OaiRecord(Base):
     """One identifier in one repository. sets has every level of a hierarchical set
-    ("genre:zuyd" gives "genre" too); deleted_* are the prefixes and sets it is
+    ("genre:poetry" gives "genre" too); deleted_* are the prefixes and sets it is
     deleted in; tombstone: deleted in all of them (or deleted as a whole)."""
 
     FIELDS = Base.FIELDS + [

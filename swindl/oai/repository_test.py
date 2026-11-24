@@ -79,15 +79,15 @@ def test_select_parts_and_ranges(store):
 
 def test_hierarchical_sets(store):
     oai = Oai(store, "full")
-    oai.add("id:1", prefixes=["didl"], sets=["genre:zuyd"])
-    oai.add("id:2", prefixes=["didl"], sets=["genre:avans"])
+    oai.add("id:1", prefixes=["didl"], sets=["genre:poetry"])
+    oai.add("id:2", prefixes=["didl"], sets=["genre:novels"])
     oai.add("id:3", prefixes=["didl"], sets=["OpenAccess"])
     assert listed(oai, "didl", set="genre") == [("id:1", False), ("id:2", False)]
-    assert listed(oai, "didl", set="genre:zuyd") == [("id:1", False)]
+    assert listed(oai, "didl", set="genre:poetry") == [("id:1", False)]
     assert oai.sets == {
         "genre": "",
-        "genre:zuyd": "",
-        "genre:avans": "",
+        "genre:poetry": "",
+        "genre:novels": "",
         "OpenAccess": "",
     }
     oai.update_set("OpenAccess", "Open access")
@@ -98,14 +98,14 @@ def test_hierarchical_sets(store):
 
 def test_delete(store):
     oai = Oai(store, "full", always_delete_in_prefixes=["didl"])
-    oai.add("id:1", prefixes=["oai_dc"], sets=["zuyd"])
+    oai.add("id:1", prefixes=["oai_dc"], sets=["poetry"])
     oai.delete("id:1")
     record = oai.get("id:1")
     assert record.tombstone
     # always_delete_in_prefixes: the delete shows in didl too
     assert record.prefixes == {"oai_dc", "didl"} == record.deleted_prefixes
     assert listed(oai, "didl") == [("id:1", True)]
-    assert listed(oai, "oai_dc", set="zuyd") == [("id:1", True)]
+    assert listed(oai, "oai_dc", set="poetry") == [("id:1", True)]
     # unknown: deleted in always_delete_in_prefixes
     oai.delete("id:unknown")
     assert listed(oai, "didl")[-1] == ("id:unknown", True)
@@ -114,7 +114,7 @@ def test_delete(store):
     oai.add("id:1", prefixes=["oai_dc"])
     assert oai.get("id:1").tombstone
     # added again with it: no longer deleted in the prefixes and sets added
-    oai.add("id:1", prefixes=["oai_dc"], sets=["zuyd"])
+    oai.add("id:1", prefixes=["oai_dc"], sets=["poetry"])
     assert not oai.get("id:1").tombstone
     assert listed(oai, "oai_dc") == [("id:1", False)]
     assert listed(oai, "didl")[0] == ("id:unknown", True)
@@ -125,7 +125,7 @@ def test_delete_unknown_without_prefixes_is_ignored(store):
     oai.delete("id:unknown")
     assert oai.get("id:unknown") is None
     with pytest.raises(ValueError):
-        oai.delete("id:unknown", sets=["zuyd"])
+        oai.delete("id:unknown", sets=["poetry"])
 
 
 def test_delete_in_prefixes(store):
@@ -142,17 +142,17 @@ def test_delete_in_prefixes(store):
 def test_delete_in_sets(store):
     oai = Oai(store, "full")
     with pytest.raises(ValueError):
-        oai.delete_in_sets("id:1", ["zuyd"])
+        oai.delete_in_sets("id:1", ["poetry"])
     oai = Oai(store, "discover", delete_in_sets=True)
-    oai.add("id:1", prefixes=["didl"], sets=["zuyd", "avans"])
-    oai.delete_in_sets("id:1", ["zuyd"])
+    oai.add("id:1", prefixes=["didl"], sets=["poetry", "novels"])
+    oai.delete_in_sets("id:1", ["poetry"])
     record = oai.get("id:1")
-    assert record.is_deleted_for("didl", sets=["zuyd"])
-    assert not record.is_deleted_for("didl", sets=["avans"])
+    assert record.is_deleted_for("didl", sets=["poetry"])
+    assert not record.is_deleted_for("didl", sets=["novels"])
     assert not record.tombstone
-    oai.delete_in_sets("id:1", ["avans"])
+    oai.delete_in_sets("id:1", ["novels"])
     assert oai.get("id:1").tombstone  # deleted in all its sets
-    oai.delete_in_sets("id:unknown", ["zuyd"])  # ignored
+    oai.delete_in_sets("id:unknown", ["poetry"])  # ignored
     assert oai.get("id:unknown") is None
 
 
