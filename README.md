@@ -1,5 +1,8 @@
 # swindl – Seecr Web Index and Database Lib
 
+[![Tests](https://github.com/seecr/swindl/actions/workflows/test.yml/badge.svg)](https://github.com/seecr/swindl/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/swindl.svg)](https://pypi.org/project/swindl/)
+
 The storage side of an [SWL](https://github.com/seecr/swl) application: objects in
 [sjdbl](https://github.com/seecr/sjdbl)'s JSON files, searchable through
 [sil](https://github.com/seecr/sil)'s index, as one `Store`; and the WebAdapter, which
