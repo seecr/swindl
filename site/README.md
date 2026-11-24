@@ -38,5 +38,8 @@ After new benchmark results (`benchmarks/RESULTS.md`), `make` again.
 
 ## Publishing
 
-`baseURL` in `hugo.toml` is `https://swindl.seecr.nl/`; change it to where the site will
-live. `public/` is the whole site, to copy to any web server or GitHub Pages.
+The site is at <https://swindl.seecr.nl/> (GitHub Pages; the domain is a CNAME for
+`seecr.github.io`). `.github/workflows/pages.yml` builds and publishes it after every
+release to PyPI, from the release tag, with sjdbl and sil at their default branch; run it
+by hand (Actions > Publish website > Run workflow) after a change to the site or to the
+docs of sjdbl or sil.

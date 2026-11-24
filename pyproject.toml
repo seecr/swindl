@@ -41,7 +41,8 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Documentation = "https://github.com/seecr/swindl/blob/master/doc/reference.md"
+Homepage = "https://swindl.seecr.nl/"
+Documentation = "https://swindl.seecr.nl/reference/"
 Source = "https://github.com/seecr/swindl"
 Issues = "https://github.com/seecr/swindl/issues"
 Changelog = "https://github.com/seecr/swindl/blob/master/CHANGELOG.md"

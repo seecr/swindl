@@ -32,6 +32,8 @@ matches the files.
 Install with `pip install swindl`. It needs Python 3.11 or newer; sjdbl, sil
 (`seecr-sil`) and their dependencies come with it.
 
+- [swindl.seecr.nl](https://swindl.seecr.nl/): the website, with the references of
+  swindl, sjdbl and sil online and as PDFs.
 - [reference](https://github.com/seecr/swindl/blob/master/doc/reference.md): everything.
 - [guarantees](https://github.com/seecr/swindl/blob/master/doc/guarantees.md): what is
   promised, what not, the limits, backups.

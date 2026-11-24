@@ -44,22 +44,22 @@ endef
 GITHUB := https://github.com/seecr
 
 content/reference.md: $(SWINDL_DIR)/doc/reference.md page.sh
-	$(call page,swindl reference,swindl,$(SWINDL_VERSION),swindl-reference.pdf,$(GITHUB)/swindl/blob/main/doc/reference.md,$<)
+	$(call page,swindl reference,swindl,$(SWINDL_VERSION),swindl-reference.pdf,$(GITHUB)/swindl/blob/master/doc/reference.md,$<)
 content/sjdbl.md: $(SJDBL_DIR)/doc/reference.md page.sh
-	$(call page,sjdbl reference,sjdbl,$(SJDBL_VERSION),sjdbl-reference.pdf,$(GITHUB)/sjdbl/blob/main/doc/reference.md,$<)
+	$(call page,sjdbl reference,sjdbl,$(SJDBL_VERSION),sjdbl-reference.pdf,$(GITHUB)/sjdbl/blob/master/doc/reference.md,$<)
 content/sil.md: $(SIL_DIR)/doc/reference.md page.sh
-	$(call page,sil reference,sil,$(SIL_VERSION),sil-reference.pdf,$(GITHUB)/sil/blob/main/doc/reference.md,$<)
+	$(call page,sil reference,sil,$(SIL_VERSION),sil-reference.pdf,$(GITHUB)/sil/blob/master/doc/reference.md,$<)
 content/guarantees.md: $(SWINDL_DIR)/doc/guarantees.md page.sh
-	$(call page,What swindl promises,swindl,$(SWINDL_VERSION),,$(GITHUB)/swindl/blob/main/doc/guarantees.md,$<)
+	$(call page,What swindl promises,swindl,$(SWINDL_VERSION),,$(GITHUB)/swindl/blob/master/doc/guarantees.md,$<)
 content/webadapter.md: $(SWINDL_DIR)/doc/webadapter.md page.sh
-	$(call page,The WebAdapter,swindl,$(SWINDL_VERSION),,$(GITHUB)/swindl/blob/main/doc/webadapter.md,$<)
+	$(call page,The WebAdapter,swindl,$(SWINDL_VERSION),,$(GITHUB)/swindl/blob/master/doc/webadapter.md,$<)
 content/example.md: $(SWINDL_DIR)/examples/collection/README.md page.sh
-	$(call page,An example application,swindl,$(SWINDL_VERSION),,$(GITHUB)/swindl/tree/main/examples/collection,$<)
+	$(call page,An example application,swindl,$(SWINDL_VERSION),,$(GITHUB)/swindl/tree/master/examples/collection,$<)
 # the benchmarks: how they are made (benchmarks.md, here) and the results of the last run
 content/benchmarks.md: benchmarks.md $(SWINDL_DIR)/benchmarks/RESULTS.md page.sh
 	{ cat benchmarks.md; awk '/^Measured/ { found = 1 } found' $(SWINDL_DIR)/benchmarks/RESULTS.md; } \
 	    > benchmarks.tmp.md
-	$(call page,Benchmarks,swindl,$(SWINDL_VERSION),,$(GITHUB)/swindl/tree/main/benchmarks,benchmarks.tmp.md)
+	$(call page,Benchmarks,swindl,$(SWINDL_VERSION),,$(GITHUB)/swindl/tree/master/benchmarks,benchmarks.tmp.md)
 	rm benchmarks.tmp.md
 
 # The PDFs: pandoc turns a reference into Typst with pdf/reference.typ as template (title

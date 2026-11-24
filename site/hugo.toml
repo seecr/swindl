@@ -9,7 +9,7 @@ github = "https://github.com/seecr/swindl"
 sjdbl = "https://github.com/seecr/sjdbl"
 sil = "https://github.com/seecr/sil"
 swl = "https://swl.seecr.nl/"
-changelog = "https://github.com/seecr/swindl/blob/main/CHANGELOG.md"
+changelog = "https://github.com/seecr/swindl/blob/master/CHANGELOG.md"
 seecr = "https://seecr.nl"
 
 [menus]

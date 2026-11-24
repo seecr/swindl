@@ -1,0 +1,78 @@
+name: Publish website
+
+# Builds site/ (Hugo, with the references of swindl, sjdbl and sil as pages and PDFs) and
+# publishes it to GitHub Pages at https://swindl.seecr.nl/. Runs after "Publish to PyPI"
+# has succeeded for a version tag, building from that tag, so the site shows the released
+# reference. It can also be run by hand (Actions > Publish website > Run workflow) from any
+# branch. sjdbl and sil are checked out next to swindl (as the Makefile expects), at their
+# default branch; the versions on their pages are their latest tags.
+on:
+  workflow_run:
+    workflows: ["Publish to PyPI"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: swindl/site
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          path: swindl
+          fetch-depth: 0  # the version on the site comes from the tags
+      - uses: actions/checkout@v7
+        with:
+          repository: seecr/sjdbl
+          path: sjdbl
+          fetch-depth: 0
+      - uses: actions/checkout@v7
+        with:
+          repository: seecr/sil
+          path: sil
+          fetch-depth: 0
+      - name: Install pandoc and Typst
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl -sSfLo pandoc.deb \
+              https://github.com/jgm/pandoc/releases/download/3.9.0.2/pandoc-3.9.0.2-1-amd64.deb
+          sudo dpkg -i pandoc.deb
+          curl -sSfL https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz \
+              | tar xJ
+          sudo mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin/
+          pandoc --version | head -1
+          typst --version
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: "0.152.2"
+          extended: true
+      - id: pages
+        uses: actions/configure-pages@v6
+      - name: Build
+        run: make build HUGO_FLAGS="--baseURL ${{ steps.pages.outputs.base_url }}/"
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: swindl/site/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

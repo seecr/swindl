@@ -65,7 +65,8 @@ local sjdbl checkout: `pip install -e ../sjdbl`.
 Releasing: give the version a `## X.Y.Z (date)` section in `CHANGELOG.md`, then push
 the tag `X.Y.Z` to GitHub; `.github/workflows/publish.yml` builds it, uploads it to
 PyPI (trusted publishing) and makes the GitHub release. The tag is the version
-(setuptools-scm).
+(setuptools-scm). After that, `.github/workflows/pages.yml` publishes `site/` to
+https://swindl.seecr.nl/ (GitHub Pages).
 
 ## Design decisions (deliberate, don't re-propose)
 
