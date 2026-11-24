@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.2.0 (2026-11-24)
 
 ### Changed
 
@@ -20,6 +20,8 @@
 - Published on GitHub (https://github.com/seecr/swindl) and PyPI (`pip install
   swindl`): project URLs and classifiers in the metadata, tests in GitHub Actions, and a
   release to PyPI for every version tag.
+- The website, https://swindl.seecr.nl/, with the references of swindl, sjdbl and sil,
+  published after every release.
 
 ## 3.1.0 (2026-11-20)
 
