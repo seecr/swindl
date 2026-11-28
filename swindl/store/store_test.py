@@ -95,6 +95,31 @@ def test_has_changed_exception_on_get(tmp_path):
         store.get(book.qrid)
 
 
+def test_put_of_a_stale_object_raises_has_changed(tmp_path):
+    """A put conflict raises the HasChangedException that swindl.store exports, the
+    same class as get(qrid) and sjdbl."""
+    import sjdbl.base
+
+    import swindl.store
+
+    assert swindl.store.HasChangedException is sjdbl.base.HasChangedException
+
+    class Book(Base):
+        FIELDS = Base.FIELDS + [Field.str("title")]
+
+    store = Store(tmp_path, [Book], commit=Commit(immediate=True))
+    book = Book.create(title="Lord of the rings")
+    store.put(book)
+
+    fresh, stale = store.get(book.qid), store.get(book.qid)
+    fresh.update(title="Lady of the rings")
+    store.put(fresh)
+    stale.update(title="Lord of the flies")
+    with pytest.raises(swindl.store.HasChangedException):
+        store.put(stale)
+    assert store.get(book.qid).title == "Lady of the rings"
+
+
 def test_archive(tmp_path):
     class Book(Base):
         FIELDS = Base.FIELDS + [Field.str("title")]
@@ -245,8 +270,8 @@ def test_threads_saving_the_same_objects(tmp_path):
             try:
                 store.put(counter)
                 return
-            except Exception as e:  # sjdbl's HasChangedException: load again
-                assert type(e).__name__ == "HasChangedException"
+            except HasChangedException:  # load again
+                pass
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         list(pool.map(bump, range(200)))

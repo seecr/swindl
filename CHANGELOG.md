@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `put()` of a stale object raised sjdbl's `HasChangedException`, a different class than
+  `swindl.store.HasChangedException` (which only `get(qrid)` raised), so `except
+  swindl.store.HasChangedException` did not catch a put conflict. swindl now uses sjdbl's
+  class: `swindl.store.HasChangedException is sjdbl.base.HasChangedException`, and one
+  `except` catches both.
+
 ## 3.2.1 (2026-11-24)
 
 ### Changed

@@ -133,8 +133,10 @@ store.delete(book)                             # gone, from files and index
 
 **qid and qrid.** `obj.qid` is `"Book:<id>"`; `obj.qrid` adds the revision,
 `"Book:<id>:<rev>"`. The revision changes at every put. `get(qrid)` raises
-`HasChangedException` (from `swindl.store.store`) when the object was changed since: put the
-qrid in a form, and you know whether someone else saved in between.
+`HasChangedException` (from `swindl.store`) when the object was changed since: put the
+qrid in a form, and you know whether someone else saved in between. `put(obj)` raises the
+same exception when `obj` is stale (someone saved it after you got it): get it again and
+redo the change.
 
 `assert_type=Book` raises `TypeError` when the qid is of another model; use it for qids that
 come from a request.

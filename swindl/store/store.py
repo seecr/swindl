@@ -17,16 +17,12 @@ from contextlib import contextmanager
 
 from seecr_stdlib import first
 from sjdbl import Store as JsonStore
-from sjdbl.base import __ARCHIVED__, __ID__, __REV__, Base
+from sjdbl.base import __ARCHIVED__, __ID__, __REV__, Base, HasChangedException
 
 from .indexes import Indexes, Query
 from .utils import mkdir
 
 logger = logging.getLogger(__name__)
-
-
-class HasChangedException(Exception):
-    pass
 
 
 class QueryParams:
