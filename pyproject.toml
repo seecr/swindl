@@ -29,11 +29,11 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "lxml >= 6.1.3, < 7",
+    "lxml >= 6.2.0, < 7",
     "pytest >= 9.2.0, < 10",
     "pytest-asyncio >= 1.5.0, < 2",
     "pytest-xdist >= 3.8.0, < 4",
-    "seecr-sil >= 3.4.0, < 4",
+    "seecr-sil >= 3.4.1, < 4",
     "seecr-stdlib >= 0.7.0, < 1",
     "sjdbl >= 0.6.0, < 1",
     "tantivy >= 0.27.0, < 1",

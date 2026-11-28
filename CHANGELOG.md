@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Needs lxml >= 6.2.0 and seecr-sil >= 3.4.1.
+
 ### Fixed
 
 - `put()` of a stale object raised sjdbl's `HasChangedException`, a different class than
